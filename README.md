@@ -16,10 +16,11 @@ An investigation of American Fuzzy Lop++ as a fuzzer
 
 ## TEST RESULTS
 
-| Filename     | Description                           |
-| :----------- | :------------------------------------ |
-| source01_*.c | Read input and print to stdout        |
-| source02_*.c | Print command line argument to stdout |
-| source03_*.c | Compare input to a "password" file    |
+| Filename     | Description                                      |
+| :----------- | :----------------------------------------------- |
+| source01_*.c | Read input and print to stdout                   |
+| source02_*.c | Print command line argument to stdout            |
+| source03_*.c | Compare input to a "password" file               |
+| source04_*.c | Read input, authenticate, and read file argument |
 
 NOTE: All source files should have a 'bad', 'better', and 'best' version.
