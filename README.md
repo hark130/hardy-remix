@@ -22,5 +22,6 @@ An investigation of American Fuzzy Lop++ as a fuzzer
 | source02_*.c | Print command line argument to stdout            |
 | source03_*.c | Compare input to a "password" file               |
 | source04_*.c | Read input, authenticate, and read file argument |
+| source05_*.c | Get filename from argv[1], read, and print it    |
 
 NOTE: All source files should have a 'bad', 'better', and 'best' version.
