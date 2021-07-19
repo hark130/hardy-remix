@@ -21,9 +21,10 @@ int verify_filename(char *filename);
 int main(int argc, char *argv[])
 {
     // LOCAL VARIABLES
-    char *filename = NULL;    // Flow control
-    int file_exists = 0;      // Return value from verify_filename(): 1 exists, 0 missing, -1 error
-    int success = 0;          // 0 Success, -1 Bad input, -2 Error
+    char *filename = NULL;       // Flow control; Stack mem
+    char *file_contents = NULL;  // Head-allocated member holding the contents of filename
+    int file_exists = 0;         // Return value from verify_filename(): 1 exists, 0 missing, -1 error
+    int success = 0;             // 0 Success, -1 Bad input, -2 Error
 
     // DO IT
     // 1. PARSE ARGUMENTS
@@ -52,11 +53,25 @@ int main(int argc, char *argv[])
     if (filename)
     {
         // Read file
+        file_contents = read_file(filename);
         // Print the file contents
-        fprintf(stderr, "%s\n", filename);  // DEBUGGING            
+        if (file_contents)
+        {
+            fprintf(stderr, "%s\n", filename);  // DEBUGGING
+            fprintf(stdout, "%s\n", file_contents);
+        }
+        else
+        {
+            success = -2;
+        }
     }
 
     // DONE
+    if (file_contents)
+    {
+        free(file_contents);
+        file_contents = NULL;
+    }
     return success;
 }
 
@@ -152,9 +167,8 @@ char *read_file(char *filename)
             fp = fopen(filename, "r");
             if (fp)
             {
+                // Ignore return values since NULL can mean no characters read
                 fgets(file_contents, file_size, (FILE*)fp);
-                // TD: DDN... Responsd to fgets() return value here.
-                // Web browser acting wonky
             }
         }
     }
