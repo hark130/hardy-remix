@@ -13,10 +13,10 @@ source01:
 	$(CC) $(CFLAGS) -o $(DIST)source01_best.bin $(DIST)source01_best.o
 
 source04:
-# 	$(CC) $(CFLAGS) -Wno-implicit-function-declaration -o $(DIST)source04_bad.o -c $(CODE)source04_bad.c
+	$(CC) $(CFLAGS) -Wno-implicit-function-declaration -o $(DIST)source04_bad.o -c $(CODE)source04_bad.c
 # 	$(CC) $(CFLAGS) -o $(DIST)source04_better.o -c $(CODE)source04_better.c
 	$(CC) $(CFLAGS) -o $(DIST)source04_best.o -c $(CODE)source04_best.c
-# 	$(CC) $(CFLAGS) -o $(DIST)source04_bad.bin $(DIST)source04_bad.o
+	$(CC) $(CFLAGS) -o $(DIST)source04_bad.bin $(DIST)source04_bad.o
 # 	$(CC) $(CFLAGS) -o $(DIST)source04_better.bin $(DIST)source04_better.o
 	$(CC) $(CFLAGS) -o $(DIST)source04_best.bin $(DIST)source04_best.o
 
