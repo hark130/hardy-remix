@@ -4,6 +4,8 @@
  * 2. Read file contents
  * 3. Print the file contents
  */
+#include <sys/types.h> // off_t
+#include <sys/stat.h>  // stat()
 
 #define BINARY_NAME "source05_best.bin"
 
@@ -11,6 +13,7 @@
 char *get_filename(int argc, char *argv[]);
 char *parse_args(int argc, char *argv[]);
 void print_usage(void);
+off_t size_file(char *filename);
 char *validate_arg(char *argOne);
 int verify_filename(char *filename);
 
@@ -48,16 +51,9 @@ int main(int argc, char *argv[])
     // 3. READ FILE
     if (filename)
     {
-        if(!authenticate(PASSWORD))
-        {
-            // Read file
-            // Print the file contents
-            fprintf(stderr, "%s\n", filename);  // DEBUGGING            
-        }
-        else
-        {
-            success = -1;  // Bad password
-        }
+        // Read file
+        // Print the file contents
+        fprintf(stderr, "%s\n", filename);  // DEBUGGING            
     }
 
     // DONE
@@ -130,6 +126,64 @@ void print_usage(void)
     fprintf(stderr, "\toptions:\n");
     fprintf(stderr, "\t\t-h, --help\t\tprint usage\n");
     fprintf(stderr, "\n");
+}
+
+
+/*
+ *  Read filename into a custom-sized, heap-allocated buffer
+ */
+char *read_file(char *filename)
+{
+    // LOCAL VARIABLES
+    char *file_contents = NULL;  // Allocate mem and return
+    off_t file_size = 0;         // Size of filename in bytes
+    FILE *fp = NULL;             // File pointer to filename
+    
+    // INPUT VALIDATION
+    if (filename && *filename)
+    {
+        // Size it
+        file_size = size_file(filename) + 1;  // Add one for the nul terminator
+        // Allocate it
+        file_contents = calloc(file_size, 1);
+        // Read it
+        if (file_contents)
+        {
+            fp = fopen(filename, "r");
+            if (fp)
+            {
+                fgets(file_contents, file_size, (FILE*)fp);
+                // TD: DDN... Responsd to fgets() return value here.
+                // Web browser acting wonky
+            }
+        }
+    }
+    
+    // DONE
+    return file_contents;
+}
+
+
+/*
+ *  Get the size of a file: size on success, -1 on error
+ */
+off_t size_file(char *filename)
+{
+    // LOCAL VARIABLES
+    struct stat response;  // Used by stat()
+    off_t size = -1;       // Return value
+
+    // INPUT VALIDATION
+    if (filename && *filename)
+    {
+        if (0 == stat(filename, &response))
+        {
+            size = response.st_size;
+        }        
+    }
+
+    // DONE
+    return size;
 }
 
 
