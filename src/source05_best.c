@@ -3,6 +3,9 @@
  * 2. Read file contents
  * 3. Print the file contents
  */
+#include <stdio.h>
+#include <stdlib.h>    // calloc()
+#include <string.h>    // strstr()
 #include <sys/types.h> // off_t
 #include <sys/stat.h>  // stat()
 
@@ -15,6 +18,7 @@ char *get_filename(int argc, char *argv[]);
 void log_it(char *log_entry);
 char *parse_args(int argc, char *argv[]);
 void print_usage(void);
+char *read_file(char *filename);
 off_t size_file(char *filename);
 char *validate_arg(char *argOne);
 int verify_filename(char *filename);
@@ -29,7 +33,6 @@ int main(int argc, char *argv[])
     int success = 0;             // 0 Success, -1 Bad input, -2 Error
 
     // DO IT
-    LOG_IT("\n");  // AFL DEBUGGING
     LOG_IT(argv[0]);  // AFL DEBUGGING
     LOG_IT(argv[1]);  // AFL DEBUGGING
     // 1. PARSE ARGUMENTS
