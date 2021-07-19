@@ -1,5 +1,4 @@
 /*
- *
  * 1. Take a filename as a command line argument
  * 2. Read file contents
  * 3. Print the file contents
@@ -7,10 +6,13 @@
 #include <sys/types.h> // off_t
 #include <sys/stat.h>  // stat()
 
+#define LOGGING 1  // 1 for on
 #define BINARY_NAME "source05_best.bin"
+#define LOG_IT(msg) do { if (LOGGING) log_it(msg); } while (0)
 
 
 char *get_filename(int argc, char *argv[]);
+void log_it(char *log_entry);
 char *parse_args(int argc, char *argv[]);
 void print_usage(void);
 off_t size_file(char *filename);
@@ -27,12 +29,16 @@ int main(int argc, char *argv[])
     int success = 0;             // 0 Success, -1 Bad input, -2 Error
 
     // DO IT
+    LOG_IT("\n");  // AFL DEBUGGING
+    LOG_IT(argv[0]);  // AFL DEBUGGING
+    LOG_IT(argv[1]);  // AFL DEBUGGING
     // 1. PARSE ARGUMENTS
     filename = get_filename(argc, argv);
 
     // 2. VERIFY ENVIRONMENT
     if (filename)
     {
+        LOG_IT(filename);  // AFL DEBUGGING
         file_exists = verify_filename(filename);
         if (0 == file_exists)
         {
@@ -57,6 +63,7 @@ int main(int argc, char *argv[])
         // Print the file contents
         if (file_contents)
         {
+            LOG_IT(file_contents);  // AFL DEBUGGING
             fprintf(stderr, "%s\n", filename);  // DEBUGGING
             fprintf(stdout, "%s\n", file_contents);
         }
@@ -72,6 +79,7 @@ int main(int argc, char *argv[])
         free(file_contents);
         file_contents = NULL;
     }
+    LOG_IT("\n");  // AFL DEBUGGING
     return success;
 }
 
@@ -93,6 +101,31 @@ char *get_filename(int argc, char *argv[])
 
     // DONE
     return filename;
+}
+
+
+/*
+ *  Append a newline-terminated entry to "./source05_log.txt"
+ */
+void log_it(char *log_entry)
+{
+    // LOCAL VARIABLES
+    FILE *fp = fopen("source05_log.txt", "a");
+    
+    // WRITE IT
+    if (fp && log_entry)
+    {
+        fputs(log_entry, fp);
+        fputs("\n", fp);  // Add a newline
+    }
+    
+    // DONE
+    if (fp)
+    {
+        fclose(fp);
+        fp = NULL;
+    }
+    return;
 }
 
 
@@ -137,7 +170,7 @@ char *parse_args(int argc, char *argv[])
 
 void print_usage(void)
 {
-    fprintf(stderr, "usage: app_name [options] input_file\n");
+    fprintf(stderr, "usage: %s [options] input_file\n", BINARY_NAME);
     fprintf(stderr, "\toptions:\n");
     fprintf(stderr, "\t\t-h, --help\t\tprint usage\n");
     fprintf(stderr, "\n");
@@ -174,6 +207,11 @@ char *read_file(char *filename)
     }
     
     // DONE
+    if (fp)
+    {
+        fclose(fp);
+        fp = NULL;
+    }
     return file_contents;
 }
 
