@@ -9,7 +9,7 @@
 #include <sys/types.h> // off_t
 #include <sys/stat.h>  // stat()
 
-#define LOGGING 1  // 1 for on
+#define LOGGING 0  // 1 for on
 #define BINARY_NAME "source05_best.bin"
 #define LOG_IT(msg) do { if (LOGGING) log_it(msg); } while (0)
 
@@ -194,17 +194,24 @@ char *read_file(char *filename)
     if (filename && *filename)
     {
         // Size it
-        file_size = size_file(filename) + 1;  // Add one for the nul terminator
-        // Allocate it
-        file_contents = calloc(file_size, 1);
-        // Read it
-        if (file_contents)
+        file_size = size_file(filename);
+        if (file_size > -1)
         {
-            fp = fopen(filename, "r");
-            if (fp)
+            // Allocate it
+            file_contents = calloc(file_size + 1, 1);
+            // Read it
+            if (file_contents)
             {
-                // Ignore return values since NULL can mean no characters read
-                fgets(file_contents, file_size, (FILE*)fp);
+                fp = fopen(filename, "r");
+                if (fp)
+                {
+                    if (!fgets(file_contents, file_size, (FILE*)fp))
+                    {
+                        // Error
+                        free(file_contents);
+                        file_contents = NULL;
+                    }
+                }
             }
         }
     }
