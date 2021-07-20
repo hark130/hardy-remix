@@ -2,7 +2,7 @@
 
 ## Hardy Remix (HARE)
 
-An investigation of American Fuzzy Lop++ as a fuzzer
+An investigation of American Fuzzy Lop++ (AFL) as a fuzzer
 
 <img align="right" src="https://upload.wikimedia.org/wikipedia/commons/a/a4/Conejillo_de_indias.jpg" alt="American Fuzzy Lop">
 
@@ -11,6 +11,10 @@ An investigation of American Fuzzy Lop++ as a fuzzer
 ### Build Binaries
 
 `make all`
+
+### Execute AFL
+
+`afl-fuzz -i test/input05/ -o test/output05/ -D dist/source05_best.bin @@`
 
 ## Test Files
 
