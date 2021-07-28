@@ -14,7 +14,15 @@ An investigation of American Fuzzy Lop++ (AFL) as a fuzzer
 
 ### Execute AFL
 
+#### AFL++
+
 `afl-fuzz -i test/input05/ -o test/output05/ -D dist/source05_best.bin @@`
+
+#### AFL-Utils
+
+`afl-collect ../hardy-remix/test/output05_bad ../hardy-remix/test/test_collection/ -- ../hardy-remix/dist/source05_bad.bin @@`
+
+`afl-vcrash ../hardy-remix/test/test_collection/ -- ../hardy-remix/dist/source05_bad.bin @@`
 
 ### Report/Crash Processing
 
