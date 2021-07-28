@@ -16,6 +16,15 @@ An investigation of American Fuzzy Lop++ (AFL) as a fuzzer
 
 `afl-fuzz -i test/input05/ -o test/output05/ -D dist/source05_best.bin @@`
 
+### Crash Processing
+
+ * [afl-crash-analyzer](https://github.com/floyd-fuh/afl-crash-analyzer) - another crash analyzer for AFL.
+ * [fuzzer-utils](https://github.com/ThePatrickStar/fuzzer-utils) - a set of scripts for the analysis of results.
+ * [atriage](https://github.com/Ayrx/atriage) - a simple triage tool.
+ * [afl-kit](https://github.com/kcwu/afl-kit) - afl-cmin on Python.
+ * [AFLize](https://github.com/d33tah/aflize) - a tool that automatically generates builds of debian packages suitable for AFL.
+ * [afl-fid](https://github.com/FoRTE-Research/afl-fid) - a set of tools for working with input data.
+
 ## Test Files
 
 ## TEST RESULTS
