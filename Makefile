@@ -28,10 +28,15 @@ source05:
 # 	$(CC) $(CFLAGS) -o $(DIST)source05_better.bin $(DIST)source05_better.o
 	$(CC) $(CFLAGS) -o $(DIST)source05_best.bin $(DIST)source05_best.o
 
+waiting:
+	$(CC) $(CFLAGS) -o $(DIST)waiting.o -c $(CODE)waiting.c
+	$(CC) $(CFLAGS) -o $(DIST)waiting.bin $(DIST)waiting.o
+
 all_source:
 	$(MAKE) source01
 	$(MAKE) source04
 	$(MAKE) source05
+	$(MAKE) waiting
 
 all:
 	$(MAKE) clean
