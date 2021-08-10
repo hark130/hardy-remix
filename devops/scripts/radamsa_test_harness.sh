@@ -19,6 +19,7 @@ TEMP_RET=0           # Temporary exit code var
 INPUT_NUM=0          # Counter for test input
 NUM_FILES_CREATED=0  # Number of files successfully created
 FILE_EXISTS=0        # Current $TEST_FILE_DIR/$INPUT file was created
+CRASH_NUM=0          # Number of detected execution errors
 
 
 #
@@ -338,6 +339,7 @@ while true;
 do
     # Generate Input
     INPUT=$(echo "some_file.txt" | radamsa --delay 100 | tr -d '\0')
+    ABS_INPUT=$(join_file "$TEST_FILE_DIR" "$INPUT")
 
     # Incremement Counter
     INPUT_NUM=$(($INPUT_NUM + 1))
@@ -361,13 +363,22 @@ do
     fi
 
     # Execute
-    TEMP_ERROR=$(./dist/source05_bad.bin $INPUT 2>&1 > /dev/null)
+    TEMP_ERROR=$(./dist/source05_bad.bin $ABS_INPUT 2>&1 > /dev/null)
     TEMP_RET=$?
+    # Was a crash detected?
+    if ([ -n "$TEMP_ERROR" ] || [ $TEMP_RET -ne 0 ])
+    then
+        CRASH_NUM=$(($CRASH_NUM + 1))
+    fi
+    # Was an error detected?
     if [[ -n "$TEMP_ERROR" ]]
     then
         log_to_file "EXECUTION #$INPUT_NUM ...produced... ERROR: $TEMP_ERROR"
         TEMP_ERROR=""
+    # else
+    #     echo "TEMP_ERROR: $TEMP_ERROR"  # DEBUGGING
     fi
+    # Was an exit code detected?
     if [[ $TEMP_RET -ne 0 ]]
     then
         log_to_file "INPUT #$INPUT_NUM: $INPUT ...caused... RETURN VALUE: $TEMP_RET"
@@ -405,9 +416,15 @@ do
         TEMP_RET=0
         TEMP_ERROR=""
         FILE_EXISTS=0
+        ABS_INPUT=""
     fi
 done
 
 # FINALE
-log_to_file "CREATED $NUM_FILES_CREATED FILES FOR $INPUT_NUM INPUTS"
 log_to_file "EXECUTION FINISH"
+log_to_file ""
+log_to_file "------------------------------------------------------"
+log_to_file "| STATISTICS:                                        |"
+log_to_file "------------------------------------------------------"
+log_to_file "  CREATED $NUM_FILES_CREATED FILES FOR $INPUT_NUM INPUTS"
+log_to_file "  REVEALED $CRASH_NUM ERROR(S)"
