@@ -7,9 +7,11 @@
 # Reserved Exit Codes
 # https://tldp.org/LDP/abs/html/exitcodes.html
 
-# Filename to log execution
+# Directory to store log files
 TEST_FILE_DIR="test/radamsa"
+# Directory to store files that caused detectable crashes
 CRASHES_FILE_DIR="$TEST_FILE_DIR/crashes"
+# Filename to store log entries
 LOG_FILENAME="radamsa_log_"$(date +"%Y%m%d_%H%M%S")".log"
 NUM_INPUTS=$1        # Number of test inputs to generate
 TEMP_ERROR=""        # Capture stderr for each execution
