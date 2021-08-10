@@ -9,6 +9,7 @@
 
 # Filename to log execution
 TEST_FILE_DIR="test/radamsa"
+CRASHES_FILE_DIR="$TEST_FILE_DIR/crashes"
 LOG_FILENAME="radamsa_log_"$(date +"%Y%m%d_%H%M%S")".log"
 NUM_INPUTS=$1        # Number of test inputs to generate
 TEMP_ERROR=""        # Capture stderr for each execution
@@ -16,6 +17,112 @@ TEMP_RET=0           # Temporary exit code var
 INPUT_NUM=0          # Counter for test input
 NUM_FILES_CREATED=0  # Number of files successfully created
 FILE_EXISTS=0        # Current $TEST_FILE_DIR/$INPUT file was created
+
+
+#
+# PURPOSE: Join a filename with its directory
+# ARGUMENTS:
+#   directory: Directory in which to create the file
+#   filename: Filename to create in directory
+# NOTES:
+#   Prints directory/filename on success
+#   Prints "" on failure
+# RETURN: None
+#
+join_file()
+{
+    # LOCAL VARIABLES
+    DIRECTORY=$1     # Filename's directory
+    FILENAME=$2      # Filename
+    ABS_FILENAME=""  # Absolute filename constructed with $DIRECTORY
+
+    # INPUT VALIDATION
+    if [[ -n "$FILENAME" ]]
+    then
+        # Form Absolute Filename
+        if [[ -z "$DIRECTORY" ]]
+        then
+            ABS_FILENAME=$FILENAME
+        else
+            ABS_FILENAME=$DIRECTORY"/"$FILENAME
+        fi
+    fi
+
+    # DONE
+    echo "$ABS_FILENAME"
+}
+
+
+#
+# PURPOSE: Copy a file to a directory
+# ARGUMENTS:
+#   source_file: Relative or absolute filename to the file to copy
+#   destination_dir: Destination directory
+# NOTE:
+#   Will not overwrite an existing file
+#   Failing to overwrite an existing file will appear to succeed
+# RETURN:
+#   0 on success
+#   1 for bad input
+#   2 on error
+#
+copy_file()
+{
+    # LOCAL VARIABLES
+    SOURCE_FILE=$1      # File, absolute or relative, to copy
+    DESTINATION_DIR=$2  # Destination directory
+    RET_VAL=0           # Function return value
+
+    # INPUT VALIDATION
+    if ([ -n $SOURCE_FILE ] && [ -n $DESTINATION_DIR ])
+    then
+        # DO IT
+        cp -n "$SOURCE_FILE" "$DESTINATION_DIR"
+        RET_VAL=$?
+        if [[ $RET_VAL -ne 0 ]]
+        then
+            RET_VAL=2
+        fi
+    else
+        RET_VAL=1
+    fi
+
+    # DONE
+    return $RET_VAL
+}
+
+
+#
+# PURPOSE: Copy a file from $TEST_FILE_DIR to $CRASHES_FILE_DIR
+# ARGUMENTS:
+#   filename: File to copy from $TEST_FILE_DIR to $CRASHES_FILE_DIR
+# NOTE:
+#   Will not overwrite an existing file
+#   Failing to overwrite an existing file will appear to succeed
+#   Function will automatically join the filename with the source dir
+#   Calls copy_file() under the hood
+# RETURN:
+#   0 on success
+#   1 for bad input
+#   2 on error
+#
+save_crash_file()
+{
+    # LOCAL VARIABLES
+    FILENAME=$1      # Filename to save in the crashes directory
+    RET_VAL=0           # Function return value
+    ABS_SOURCE_FILE=""  # $TEST_FILE_DIR/$FILENAME
+
+    # JOIN IT
+    ABS_SOURCE_FILE=$(join_file $TEST_FILE_DIR $FILENAME)
+
+    # COPY IT
+    copy_file "$ABS_SOURCE_FILE" "$CRASHES_FILE_DIR"
+    RET_VAL=$?
+
+    # DONE
+    return $RET_VAL
+}
 
 
 #
@@ -27,6 +134,7 @@ FILE_EXISTS=0        # Current $TEST_FILE_DIR/$INPUT file was created
 # NOTE:
 #   Will not overwrite an existing file
 #   Appends a newline to contents
+#   Echos stderr from file creation
 # RETURN:
 #   0 on success
 #   1 for bad input
@@ -35,6 +143,7 @@ FILE_EXISTS=0        # Current $TEST_FILE_DIR/$INPUT file was created
 #
 create_file()
 {
+    # LOCAL VARIABLES
     DIRECTORY=$1     # Filename's directory
     FILENAME=$2      # Filename
     CONTENTS=$3      # File contents
@@ -47,17 +156,18 @@ create_file()
         RET_VAL=1
     else
         # Form Absolute Filename
-        if [[ -z "$DIRECTORY" ]]
-        then
-            ABS_FILENAME=$FILENAME
-        else
-            ABS_FILENAME=$DIRECTORY"/"$FILENAME
-        fi
+        # if [[ -z "$DIRECTORY" ]]
+        # then
+        #     ABS_FILENAME=$FILENAME
+        # else
+        #     ABS_FILENAME=$DIRECTORY"/"$FILENAME
+        # fi
+        ABS_FILENAME=$(join_file "$DIRECTORY" "$FILENAME")
 
         # DO IT
         if [[ ! -f $ABS_FILENAME ]]
         then
-            printf "%s\n" "$CONTENTS" > $ABS_FILENAME
+            TEMP_ERROR=$(printf "%s\n" "$CONTENTS" 2>&1 > "$ABS_FILENAME")
             PRINT_SUCCESS=$?
             if [[ $PRINT_SUCCESS -ne 0 ]]
             then
@@ -69,6 +179,12 @@ create_file()
     fi
 
     # DONE
+    if [[ -n "$TEMP_ERROR" ]]
+    then
+        echo "$TEMP_ERROR"
+    else
+        TEMP_ERROR=""
+    fi
     return $RET_VAL
 }
 
@@ -81,6 +197,7 @@ create_file()
 #   Will not overwrite an existing file
 #   Appends a newline to contents
 #   Calls create_file() under the hood
+#   Echos stderr from file creation
 # RETURN:
 #   0 on success
 #   1 for bad input
@@ -96,23 +213,87 @@ create_test_file()
 
     # DO IT
     # create_file "$TEST_FILE_DIR" "$FILENAME" "$(date)"
-    create_file "$TEST_FILE_DIR" "$FILENAME" "$CONTENTS"
+    TEMP_ERROR=$(create_file "$TEST_FILE_DIR" "$FILENAME" "$CONTENTS")
     RET_VAL=$?
+
+    # DONE
+    if [[ -n "$TEMP_ERROR" ]]
+    then
+        echo "$TEMP_ERROR"
+    else
+        TEMP_ERROR=""
+    fi
+    return $RET_VAL
+}
+
+
+#
+# PURPOSE: Delete a file from a directory
+# ARGUMENTS:
+#   directory: Directory in which to create the file
+#   filename: Filename to create in directory
+# RETURN:
+#   0 on success
+#   1 for bad input
+#   2 on error
+#
+delete_file()
+{
+    # LOCAL VARIABLES
+    DIRECTORY=$1     # Directory that contains the filename
+    FILENAME=$2      # Filename to delete
+    ABS_FILENAME=""  # Concatenated $DIRECTORY and $FILENAME
+    RET_VAL=0        # rm return value; Also function return value
+
+    # CONCATENATE DIR AND FILE
+    ABS_FILENAME=$(join_file "$DIRECTORY" "$FILENAME")
+
+    # DO IT
+    if [[ -n "$ABS_FILENAME" ]]
+    then
+        if [[ -f "$ABS_FILENAME" ]]
+        then
+            rm -f "$ABS_FILENAME"
+            RET_VAL=$?
+            if [[ $RET_VAL -ne 0 ]]
+            then
+                RET_VAL=2
+            fi
+        fi
+    else
+        RET_VAL=1
+    fi
 
     # DONE
     return $RET_VAL
 }
 
 
-# delete_file()
-# {
-#     # LOCAL VARIABLES
-#     DIRECTORY=$1  # Directory that contains the filename
-#     FILENAME=$2   # Filename to delete
-#     RET_VAL=0     # rm return value; Also function return value
+#
+# PURPOSE: Delete a file from the $TEST_FILE_DIR directory
+# ARGUMENTS:
+#   filename: Filename to create in directory
+# NOTE:
+#   Calls delete_file() under the hood
+# RETURN:
+#   0 on success
+#   1 for bad input
+#   2 on error
+#
+delete_test_file()
+{
+    # LOCAL VARIABLES
+    FILENAME=$1      # Filename to delete
+    RET_VAL=0        # delete_file() return value; Also function return value
 
+    # DO IT
+    delete_file "$TEST_FILE_DIR" "$FILENAME"
+    RET_VAL=$?
 
-# }
+    # DONE
+    return $RET_VAL
+}
+
 
 #
 # PURPOSE: Append an entry to a log file
@@ -164,14 +345,17 @@ do
     fi
 
     # Create File
-    create_test_file $INPUT
+    TEMP_ERROR=$(create_test_file "$INPUT")
     TEMP_RET=$?
     if [[ $TEMP_RET -eq 0 ]]
     then
-        log_to_file "CREATED FILE: $INPUT"  # DEBUGGING
+        # log_to_file "CREATED FILE: $INPUT"  # DEBUGGING
         NUM_FILES_CREATED=$(($NUM_FILES_CREATED + 1))
+        FILE_EXISTS=1
     else
-        log_to_file "FAILED TO CREATE FILE: $INPUT WITH RETURN VALUE: $TEMP_RET"  # DEBUGGING
+        # log_to_file "FAILED TO CREATE FILE: $INPUT"  # DEBUGGING
+        # log_to_file "FAILED TO CREATE FILE INPUT #$INPUT_NUM WITH ERROR MESSAGE: $TEMP_ERROR"
+        TEMP_ERROR=""
     fi
 
     # Execute
@@ -185,11 +369,29 @@ do
     if [[ $TEMP_RET -ne 0 ]]
     then
         log_to_file "INPUT #$INPUT_NUM: $INPUT ...caused... RETURN VALUE: $TEMP_RET"
-        # exit $TEMP_RET
+        save_crash_file "$INPUT"
+        TEMP_RET=$?
+        if [[ $TEMP_RET -ne 0 ]]
+        then
+            log_to_file "FAILED TO SAVE CRASH FILE FOR INPUT #$INPUT_NUM"
+        else
+            log_to_file "SAVE #$INPUT_NUM CRASH FILE"
+        fi
     fi
 
     # Cleanup
     # "Cleanup, cleanup, cleanup this mess for me for me!"
+    if [[ $FILE_EXISTS -eq 1 ]]
+    then
+        delete_test_file "$INPUT"
+        TEMP_RET=$?
+        if [[ $TEMP_RET -ne 0 ]]
+        then
+            log_to_file "UNABLE TO DELETE: $INPUT ...returned... RETURN VALUE: $TEMP_RET"
+        else
+            FILE_EXISTS=0
+        fi
+    fi
 
     # Check Loop
     if [[ $INPUT_NUM -ge NUM_INPUTS ]]
@@ -205,4 +407,5 @@ do
 done
 
 # FINALE
+log_to_file "CREATED $NUM_FILES_CREATED FILES FOR $INPUT_NUM INPUTS"
 log_to_file "EXECUTION FINISH"
