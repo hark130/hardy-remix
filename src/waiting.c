@@ -3,7 +3,7 @@
 
 int main(void)
 {
-	int i = 0;
+	// int i = 0;
 	printf("Waiting...");
 	while (1)
 	{
