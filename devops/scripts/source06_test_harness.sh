@@ -24,6 +24,7 @@ NUM_FILES_CREATED=0  # Number of files successfully created
 FILE_EXISTS=0        # Current $TEST_FILE_DIR/$INPUT file was created
 CRASH_NUM=0          # Number of detected execution errors
 BINARY_NAME=""       # Set the binary name based on the $SANITIZER
+SAVE_IT=0            # Save the current input file to $CRASHES_FILE_DIR
 
 
 #
@@ -355,6 +356,13 @@ fi
 log_to_file "SANITIZER: $SANITIZER"
 log_to_file "USING BINARY: $BINARY_NAME"
 
+# INPUT VALIDATION
+if [[ $NUM_INPUTS -le 0 ]]
+then
+    log_to_file "INVALID NUMBER OF INPUTS: $NUM_INPUTS"
+    exit 1
+fi
+
 # DO_IT()
 while [[ -n "$BINARY_NAME" ]]
 do
@@ -414,14 +422,7 @@ do
     if [[ $TEMP_RET -ne 0 ]]
     then
         log_to_file "INPUT #$INPUT_NUM: $INPUT ...caused... RETURN VALUE: $TEMP_RET"
-        save_crash_file "$INPUT"
-        TEMP_RET=$?
-        if [[ $TEMP_RET -ne 0 ]]
-        then
-            log_to_file "FAILED TO SAVE CRASH FILE FOR INPUT #$INPUT_NUM"
-        else
-            log_to_file "SAVE #$INPUT_NUM CRASH FILE"
-        fi
+
     fi
     # Did Memwatch find something?
     if [[ "$SANITIZER" == "Memwatch" ]]
@@ -434,6 +435,18 @@ do
         elif [[ $TEMP_RET -eq 2 ]]
         then
             log_to_file "MEMWATCH SCRIPT FAILED WITH: $TEMP_RET"
+        fi
+    fi
+    # Did anyone find anything?
+    if [[ $SAVE_IT -ne 0 ]]
+    then
+        save_crash_file "$INPUT"
+        TEMP_RET=$?
+        if [[ $TEMP_RET -ne 0 ]]
+        then
+            log_to_file "FAILED TO SAVE CRASH FILE FOR INPUT #$INPUT_NUM"
+        else
+            log_to_file "SAVE #$INPUT_NUM CRASH FILE FOR $SAVE_IT REASONS"
         fi
     fi
 
@@ -472,6 +485,7 @@ do
         TEMP_ERROR=""
         FILE_EXISTS=0
         ABS_INPUT=""
+        SAVE_IT=0
     fi
 done
 
