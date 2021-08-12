@@ -1,6 +1,7 @@
 #!/bin/bash
 #
 # PURPOSE: Executes Radamsa on the source_06_bad binaries instrumented with various sanitizers.
+#
 # USAGE: source6_test_harness.sh <base, ASAN, Memwatch> <number of inputs to generate>
 #
 # NOTE: Consider using a tmpfs/ramdisk, as repeated writes may damage your hard disk or SSD.
