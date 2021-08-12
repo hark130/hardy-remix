@@ -4,29 +4,29 @@
 # 	Memwatch, and no sanitizer using source06_test_harness.sh.  This script was specifically
 #	created to compare the performance/success-rate between different sanitizers.
 #
-# USAGE: source06.sh
+# USAGE: source06_radamsa_all.sh
 #
 # NOTE: Consider using a tmpfs/ramdisk, as repeated writes may damage your hard disk or SSD.
 #
-NUM_INPUTS=100
+NUM_INPUTS=1000
 clear
 
 # BASE
-devops/scripts/source06_test_harness.sh base $NUM_INPUTS
+devops/scripts/source06_radamsa_test_harness.sh base $NUM_INPUTS
 grep "EXECUTION: " `ls radamsa*.log | tail -n 1`
 grep -B 1 -A 3 STATISTICS `ls radamsa*.log | tail -n 1`
 # rm `ls radamsa*.log | tail -n1`
 echo
 
 # ASAN
-devops/scripts/source06_test_harness.sh ASAN $NUM_INPUTS
+devops/scripts/source06_radamsa_test_harness.sh ASAN $NUM_INPUTS
 grep "EXECUTION: " `ls radamsa*.log | tail -n 1`
 grep -B 1 -A 3 STATISTICS `ls radamsa*.log | tail -n 1`
 # rm `ls radamsa*.log | tail -n1`
 echo
 
 # MEMWATCH
-devops/scripts/source06_test_harness.sh Memwatch $NUM_INPUTS
+devops/scripts/source06_radamsa_test_harness.sh Memwatch $NUM_INPUTS
 grep "EXECUTION: " `ls radamsa*.log | tail -n 1`
 grep -B 1 -A 3 STATISTICS `ls radamsa*.log | tail -n 1`
 # rm `ls radamsa*.log | tail -n1`

@@ -3,7 +3,7 @@
 # PURPOSE: Executes Radamsa's "crash" corpus on the source_06_bad binaries instrumented with
 #   various sanitizers.
 #
-# USAGE: source6_corpus.sh <base, ASAN, Memwatch> <number of corpus inputs to use>
+# USAGE: source6_corpus_test_harness.sh <base, ASAN, Memwatch> <number of corpus inputs to use>
 #
 # NOTE: Consider using a tmpfs/ramdisk, as repeated writes may damage your hard disk or SSD.
 #
