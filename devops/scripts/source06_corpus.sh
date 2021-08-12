@@ -3,7 +3,7 @@
 # PURPOSE: Executes Radamsa's "crash" corpus on the source_06_bad binaries instrumented with
 #   various sanitizers.
 #
-# USAGE: source6_corpus.sh <base, ASAN, Memwatch>
+# USAGE: source6_corpus.sh <base, ASAN, Memwatch> <number of corpus inputs to use>
 #
 # NOTE: Consider using a tmpfs/ramdisk, as repeated writes may damage your hard disk or SSD.
 #
@@ -15,16 +15,17 @@ TEST_FILE_DIR="test/radamsa"
 # Directory to store files that caused detectable crashes
 CRASHES_FILE_DIR="$TEST_FILE_DIR/crashes"
 # Filename to store log entries
-LOG_FILENAME="radamsa_log_"$(date +"%Y%m%d_%H%M%S")".log"
+LOG_FILENAME="corpus_log_"$(date +"%Y%m%d_%H%M%S")".log"
 SANITIZER=$1         # <base, ASAN, Memwatch>
 NUM_INPUTS=$2        # Number of test inputs to generate
 TEMP_ERROR=""        # Capture stderr for each execution
 TEMP_RET=0           # Temporary exit code var
 INPUT_NUM=0          # Counter for test input
-NUM_FILES_CREATED=0  # Number of files successfully created
-FILE_EXISTS=0        # Current $TEST_FILE_DIR/$INPUT file was created
+# NUM_FILES_USED=0     # Number of files successfully created
+# FILE_EXISTS=0        # Current $TEST_FILE_DIR/$INPUT file was created
 CRASH_NUM=0          # Number of detected execution errors
 BINARY_NAME=""       # Set the binary name based on the $SANITIZER
+# SAVE_IT=0            # Save the current input file to $CRASHES_FILE_DIR
 
 
 #
@@ -352,12 +353,20 @@ then
 else
     log_to_file "UNSUPPORTED ARGUMENT: $SANITIZER"
     BINARY_NAME=""
+    exit 1
 fi
 log_to_file "SANITIZER: $SANITIZER"
 log_to_file "USING BINARY: $BINARY_NAME"
 
+# INPUT VALIDATION
+if [[ $NUM_INPUTS -le 0 ]]
+then
+    log_to_file "INVALID NUMBER OF INPUTS: $NUM_INPUTS"
+    exit 1
+fi
+
 # DO_IT()
-while [[ -n "$BINARY_NAME" ]]
+for INPUT in $(ls "$CRASHES_FILE_DIR")
 do
     # Memwatch.log clear
     if [[ "$SANITIZER" == "Memwatch" ]]
@@ -371,8 +380,8 @@ do
     fi
 
     # Generate Input
-    INPUT=$(echo "some_file.txt" | radamsa --delay 100 | tr -d '\0')
-    ABS_INPUT=$(join_file "$TEST_FILE_DIR" "$INPUT")
+    ABS_INPUT=$(join_file "$CRASHES_FILE_DIR" "$INPUT")
+    # echo "$ABS_INPUT"  # DEBUGGING
 
     # Incremement Counter
     INPUT_NUM=$(($INPUT_NUM + 1))
@@ -382,30 +391,31 @@ do
     fi
 
     # Create File
-    TEMP_ERROR=$(create_test_file "$INPUT")
-    TEMP_RET=$?
-    if [[ $TEMP_RET -eq 0 ]]
-    then
-        # log_to_file "CREATED FILE: $INPUT"  # DEBUGGING
-        NUM_FILES_CREATED=$(($NUM_FILES_CREATED + 1))
-        FILE_EXISTS=1
-    else
-        # log_to_file "FAILED TO CREATE FILE: $INPUT"  # DEBUGGING
-        # log_to_file "FAILED TO CREATE FILE INPUT #$INPUT_NUM WITH ERROR MESSAGE: $TEMP_ERROR"
-        TEMP_ERROR=""
-    fi
+    # TEMP_ERROR=$(create_test_file "$INPUT")
+    # TEMP_RET=$?
+    # if [[ $TEMP_RET -eq 0 ]]
+    # then
+    #     # log_to_file "CREATED FILE: $INPUT"  # DEBUGGING
+    #     NUM_FILES_CREATED=$(($NUM_FILES_CREATED + 1))
+    #     FILE_EXISTS=1
+    # else
+    #     # log_to_file "FAILED TO CREATE FILE: $INPUT"  # DEBUGGING
+    #     # log_to_file "FAILED TO CREATE FILE INPUT #$INPUT_NUM WITH ERROR MESSAGE: $TEMP_ERROR"
+    #     TEMP_ERROR=""
+    # fi
 
     # Execute
     TEMP_ERROR=$($BINARY_NAME $ABS_INPUT 2>&1 > /dev/null)
     TEMP_RET=$?
     # Was a crash detected?
-    if ([ -n "$TEMP_ERROR" ] || [ $TEMP_RET -ne 0 ])
+    if ([[ -n "$TEMP_ERROR" ]] || [[ $TEMP_RET -ne 0 ]])
     then
         CRASH_NUM=$(($CRASH_NUM + 1))
     fi
     # Was an error detected?
     if [[ -n "$TEMP_ERROR" ]]
     then
+        # SAVE_IT=$(($SAVE_IT + 1))
         log_to_file "EXECUTION #$INPUT_NUM ...produced... ERROR: $TEMP_ERROR"
         TEMP_ERROR=""
     # else
@@ -414,15 +424,8 @@ do
     # Was an exit code detected?
     if [[ $TEMP_RET -ne 0 ]]
     then
+        # SAVE_IT=$(($SAVE_IT + 1))
         log_to_file "INPUT #$INPUT_NUM: $INPUT ...caused... RETURN VALUE: $TEMP_RET"
-        save_crash_file "$INPUT"
-        TEMP_RET=$?
-        if [[ $TEMP_RET -ne 0 ]]
-        then
-            log_to_file "FAILED TO SAVE CRASH FILE FOR INPUT #$INPUT_NUM"
-        else
-            log_to_file "SAVE #$INPUT_NUM CRASH FILE"
-        fi
     fi
     # Did Memwatch find something?
     if [[ "$SANITIZER" == "Memwatch" ]]
@@ -431,26 +434,39 @@ do
         TEMP_RET=$?
         if [[ $TEMP_RET -eq 1 ]]
         then
+            # SAVE_IT=$(($SAVE_IT + 1))
             log_to_file "MEMWATCH LOG CONTENTS: $(cat "./memwatch.log")"
         elif [[ $TEMP_RET -eq 2 ]]
         then
             log_to_file "MEMWATCH SCRIPT FAILED WITH: $TEMP_RET"
         fi
     fi
+    # Did anyone find anything?
+    # if [[ $SAVE_IT -ne 0 ]]
+    # then
+    #     save_crash_file "$INPUT"
+    #     TEMP_RET=$?
+    #     if [[ $TEMP_RET -ne 0 ]]
+    #     then
+    #         log_to_file "FAILED TO SAVE CRASH FILE FOR INPUT #$INPUT_NUM"
+    #     else
+    #         log_to_file "SAVE #$INPUT_NUM CRASH FILE FOR $SAVE_IT REASONS"
+    #     fi
+    # fi
 
     # Cleanup
     # "Cleanup, cleanup, cleanup this mess for me for me!"
-    if [[ $FILE_EXISTS -eq 1 ]]
-    then
-        delete_test_file "$INPUT"
-        TEMP_RET=$?
-        if [[ $TEMP_RET -ne 0 ]]
-        then
-            log_to_file "UNABLE TO DELETE: $INPUT ...returned... RETURN VALUE: $TEMP_RET"
-        else
-            FILE_EXISTS=0
-        fi
-    fi
+    # if [[ $FILE_EXISTS -eq 1 ]]
+    # then
+    #     delete_test_file "$INPUT"
+    #     TEMP_RET=$?
+    #     if [[ $TEMP_RET -ne 0 ]]
+    #     then
+    #         log_to_file "UNABLE TO DELETE: $INPUT ...returned... RETURN VALUE: $TEMP_RET"
+    #     else
+    #         FILE_EXISTS=0
+    #     fi
+    # fi
     # Memwatch.log clear
     if [[ "$SANITIZER" == "Memwatch" ]]
     then
@@ -473,6 +489,7 @@ do
         TEMP_ERROR=""
         FILE_EXISTS=0
         ABS_INPUT=""
+        # SAVE_IT=0
     fi
 done
 
@@ -482,5 +499,5 @@ log_to_file ""
 log_to_file "------------------------------------------------------"
 log_to_file "| STATISTICS:                                        |"
 log_to_file "------------------------------------------------------"
-log_to_file "  CREATED $NUM_FILES_CREATED FILES FOR $INPUT_NUM INPUTS"
+log_to_file "  USED $INPUT_NUM FILES FROM $CRASHES_FILE_DIR"
 log_to_file "  REVEALED $CRASH_NUM ERROR(S)"
