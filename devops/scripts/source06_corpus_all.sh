@@ -20,17 +20,17 @@ clear
 # BASE
 devops/scripts/source06_corpus_test_harness.sh base $NUM_INPUTS
 grep "EXECUTION: " `ls corpus*.log | tail -n 1`
-grep -B 1 -A 3 STATISTICS `ls corpus*.log | tail -n 1`
+grep -B 1 -A 4 STATISTICS `ls corpus*.log | tail -n 1`
 echo
 
 # ASAN
 devops/scripts/source06_corpus_test_harness.sh ASAN $NUM_INPUTS
 grep "EXECUTION: " `ls corpus*.log | tail -n 1`
-grep -B 1 -A 3 STATISTICS `ls corpus*.log | tail -n 1`
+grep -B 1 -A 4 STATISTICS `ls corpus*.log | tail -n 1`
 echo
 
 # MEMWATCH
 devops/scripts/source06_corpus_test_harness.sh Memwatch $NUM_INPUTS
 grep "EXECUTION: " `ls corpus*.log | tail -n 1`
-grep -B 1 -A 3 STATISTICS `ls corpus*.log | tail -n 1`
+grep -B 1 -A 4 STATISTICS `ls corpus*.log | tail -n 1`
 echo
