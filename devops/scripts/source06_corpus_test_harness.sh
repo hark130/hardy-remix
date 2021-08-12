@@ -80,15 +80,19 @@ copy_file()
     # LOCAL VARIABLES
     SOURCE_FILE=$1      # File, absolute or relative, to copy
     DESTINATION_DIR=$2  # Destination directory
+    TEMP_ERROR=""       # Holds stderr from command execution
     RET_VAL=0           # Function return value
 
     # INPUT VALIDATION
     if ([[ -n "$SOURCE_FILE" ]] && [[ -n "$DESTINATION_DIR" ]])
     then
         # DO IT
-        cp -n "$SOURCE_FILE" "$DESTINATION_DIR"
+        TEMP_ERROR=$(cp -n "$SOURCE_FILE" "$DESTINATION_DIR" 2>&1 > /dev/null)
         RET_VAL=$?
         if [[ $RET_VAL -ne 0 ]]
+        then
+            RET_VAL=2
+        elif [[ -n "$TEMP_ERROR" ]]
         then
             RET_VAL=2
         fi
@@ -97,6 +101,7 @@ copy_file()
     fi
 
     # DONE
+    TEMP_ERROR=""
     return $RET_VAL
 }
 
