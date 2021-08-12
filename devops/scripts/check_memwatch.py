@@ -9,7 +9,7 @@ Exit Codes:
     Typical usage example:
 
     #!/bin/bash
-    python3 check_memwatch.py --log <memwatch.log>
+    python3 check_memwatch.py --log memwatch.log
     RET_VAL=$?
     if [[ $RET_VAL -ne 0 ]]
     then
