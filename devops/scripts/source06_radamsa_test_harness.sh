@@ -19,12 +19,14 @@ SANITIZER=$1         # <base, ASAN, Memwatch>
 NUM_INPUTS=$2        # Number of test inputs to generate
 TEMP_ERROR=""        # Capture stderr for each execution
 TEMP_RET=0           # Temporary exit code var
+BINARY_RET=0         # Return value from binary execution
 INPUT_NUM=0          # Counter for test input
 NUM_FILES_CREATED=0  # Number of files successfully created
 FILE_EXISTS=0        # Current $TEST_FILE_DIR/$INPUT file was created
 CRASH_NUM=0          # Number of detected execution errors
 BINARY_NAME=""       # Set the binary name based on the $SANITIZER
 SAVE_IT=0            # Save the current input file to $CRASHES_FILE_DIR
+CRASH_FILES_SAVED=0  # Number of crash files successfully saved
 
 
 #
@@ -79,15 +81,19 @@ copy_file()
     # LOCAL VARIABLES
     SOURCE_FILE=$1      # File, absolute or relative, to copy
     DESTINATION_DIR=$2  # Destination directory
+    TEMP_ERROR=""       # Holds stderr from command execution
     RET_VAL=0           # Function return value
 
     # INPUT VALIDATION
     if ([[ -n "$SOURCE_FILE" ]] && [[ -n "$DESTINATION_DIR" ]])
     then
         # DO IT
-        cp -n "$SOURCE_FILE" "$DESTINATION_DIR"
+        TEMP_ERROR=$(cp -n "$SOURCE_FILE" "$DESTINATION_DIR" 2>&1 > /dev/null)
         RET_VAL=$?
         if [[ $RET_VAL -ne 0 ]]
+        then
+            RET_VAL=2
+        elif [[ -n "$TEMP_ERROR" ]]
         then
             RET_VAL=2
         fi
@@ -96,6 +102,7 @@ copy_file()
     fi
 
     # DONE
+    TEMP_ERROR=""
     return $RET_VAL
 }
 
@@ -404,25 +411,26 @@ do
 
     # Execute
     TEMP_ERROR=$($BINARY_NAME $ABS_INPUT 2>&1 > /dev/null)
-    TEMP_RET=$?
+    BINARY_RET=$?
     # Was a crash detected?
-    if ([[ -n "$TEMP_ERROR" ]] || [[ $TEMP_RET -ne 0 ]])
+    if ([[ -n "$TEMP_ERROR" ]] || [[ $BINARY_RET -ne 0 ]])
     then
         CRASH_NUM=$(($CRASH_NUM + 1))
     fi
     # Was an error detected?
     if [[ -n "$TEMP_ERROR" ]]
     then
+        SAVE_IT=$(($SAVE_IT + 1))
         log_to_file "EXECUTION #$INPUT_NUM ...produced... ERROR: $TEMP_ERROR"
         TEMP_ERROR=""
     # else
     #     echo "TEMP_ERROR: $TEMP_ERROR"  # DEBUGGING
     fi
     # Was an exit code detected?
-    if [[ $TEMP_RET -ne 0 ]]
+    if [[ $BINARY_RET -ne 0 ]]
     then
-        log_to_file "INPUT #$INPUT_NUM: $INPUT ...caused... RETURN VALUE: $TEMP_RET"
-
+        SAVE_IT=$(($SAVE_IT + 1))
+        log_to_file "INPUT #$INPUT_NUM: $INPUT ...caused... RETURN VALUE: $BINARY_RET"
     fi
     # Did Memwatch find something?
     if [[ "$SANITIZER" == "Memwatch" ]]
@@ -431,6 +439,7 @@ do
         TEMP_RET=$?
         if [[ $TEMP_RET -eq 1 ]]
         then
+            SAVE_IT=$(($SAVE_IT + 1))
             log_to_file "MEMWATCH LOG CONTENTS: $(cat "./memwatch.log")"
         elif [[ $TEMP_RET -eq 2 ]]
         then
@@ -446,6 +455,7 @@ do
         then
             log_to_file "FAILED TO SAVE CRASH FILE FOR INPUT #$INPUT_NUM"
         else
+            CRASH_FILES_SAVED=$(($CRASH_FILES_SAVED + 1))
             log_to_file "SAVE #$INPUT_NUM CRASH FILE FOR $SAVE_IT REASONS"
         fi
     fi
@@ -486,6 +496,7 @@ do
         FILE_EXISTS=0
         ABS_INPUT=""
         SAVE_IT=0
+        BINARY_RET=0
     fi
 done
 
@@ -497,3 +508,4 @@ log_to_file "| STATISTICS:                                        |"
 log_to_file "------------------------------------------------------"
 log_to_file "  CREATED $NUM_FILES_CREATED FILES FOR $INPUT_NUM INPUTS"
 log_to_file "  REVEALED $CRASH_NUM ERROR(S)"
+log_to_file "  SAVED $CRASH_FILES_SAVED CRASH FILES"
