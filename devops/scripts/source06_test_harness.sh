@@ -406,7 +406,7 @@ do
     TEMP_ERROR=$($BINARY_NAME $ABS_INPUT 2>&1 > /dev/null)
     TEMP_RET=$?
     # Was a crash detected?
-    if ([ -n "$TEMP_ERROR" ] || [ $TEMP_RET -ne 0 ])
+    if ([[ -n "$TEMP_ERROR" ]] || [[ $TEMP_RET -ne 0 ]])
     then
         CRASH_NUM=$(($CRASH_NUM + 1))
     fi
