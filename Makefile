@@ -59,6 +59,8 @@ source06:
 	$(CC) $(CFLAGS) -I$(MEMWATCH_DIR) -o $(DIST)source06_bad_base.bin $(CODE)source06_bad.c $(CODE)HARE_memwatch.c
 	$(CC) $(CFLAGS) -I$(MEMWATCH_DIR) $(ASANFLAGS) -o $(DIST)source06_bad_ASAN.bin $(CODE)source06_bad.c $(CODE)HARE_memwatch.c
 	$(CC) $(CFLAGS) -I$(MEMWATCH_DIR) $(MEMWATCH_FLAGS) -o $(DIST)source06_bad_Memwatch.bin $(CODE)source06_bad.c $(CODE)HARE_memwatch.c $(DIST)memwatch.o
+	$(AFLCC) $(CFLAGS) -I$(MEMWATCH_DIR) -o $(DIST)source06_bad_AFL.bin $(CODE)source06_bad.c $(CODE)HARE_memwatch.c
+	$(AFLCC) $(CFLAGS) -I$(MEMWATCH_DIR) -fsanitize=address -o $(DIST)source06_bad_AFL_ASAN.bin $(CODE)source06_bad.c $(CODE)HARE_memwatch.c
 
 waiting:
 	$(CC) $(CFLAGS) -o $(DIST)waiting.o -c $(CODE)waiting.c
