@@ -16,7 +16,19 @@ An investigation of American Fuzzy Lop++ (AFL) as a fuzzer
 
 #### AFL++
 
-`afl-fuzz -i test/input05/ -o test/output05/ -D dist/source05_best.bin @@`
+##### AFL++ Docker Container
+
+```
+docker pull aflplusplus/aflplusplus
+docker run -ti --mount type=tmpfs,destination=/ramdisk -e AFL_TMPDIR=/ramdisk -v `pwd`/hardy-remix:/HARE aflplusplus/aflplusplus
+```
+
+#### Execute AFL++
+
+```
+echo "This is my test input.  There are many like it but this one is mine." > test/input01/test_input.txt
+afl-fuzz -D -i test/afl/input01/ -o test/afl/output01/ dist/source06_bad_AFL.bin @@
+```
 
 #### AFL-Utils
 
