@@ -116,7 +116,7 @@ char *get_filename(int argc, char *argv[])
 void log_it(char *log_entry)
 {
     // LOCAL VARIABLES
-    FILE *fp = fopen("source05_log.txt", "a");
+    FILE *fp = fopen("source06_log.txt", "a");
     
     // WRITE IT
     if (fp && log_entry)
