@@ -64,7 +64,9 @@ source06:
 
 # This rule was created to facilitate making an AFL++ test harness
 source07:
+	$(CC) $(CFLAGS) -o $(DIST)source07_bad.o -c $(CODE)source07_bad.c
 	$(CC) $(CFLAGS) -o $(DIST)source07_best.o -c $(CODE)source07_best.c
+	$(CC) $(CFLAGS) -o $(DIST)source07_bad.bin $(DIST)source07_bad.o
 	$(CC) $(CFLAGS) -o $(DIST)source07_best.bin $(DIST)source07_best.o
 
 waiting:
