@@ -3,11 +3,13 @@
  * 2. Read file contents
  * 3. Print the file contents
  */
+#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>    // calloc()
 #include <string.h>    // strstr()
 #include <sys/types.h> // off_t
 #include <sys/stat.h>  // stat()
+#include <unistd.h>    // close(), read()
 
 #define LOGGING 0  // 1 for on
 #define BINARY_NAME "source05_best.bin"
@@ -188,7 +190,8 @@ char *read_file(char *filename)
     // LOCAL VARIABLES
     char *file_contents = NULL;  // Allocate mem and return
     off_t file_size = 0;         // Size of filename in bytes
-    FILE *fp = NULL;             // File pointer to filename
+    int fd = 0;                  // File descriptor of filename
+    size_t read_bytes = 0;       // Number of bytes read by read()
     
     // INPUT VALIDATION
     if (filename && *filename)
@@ -202,10 +205,11 @@ char *read_file(char *filename)
             // Read it
             if (file_contents)
             {
-                fp = fopen(filename, "r");
-                if (fp)
+                fd = open(filename, O_RDONLY);
+                if (fd > -1)
                 {
-                    if (!fgets(file_contents, file_size, (FILE*)fp))
+                    read_bytes = read(fd, file_contents, file_size);
+                    if (-1 == read_bytes)
                     {
                         // Error
                         free(file_contents);
@@ -217,10 +221,10 @@ char *read_file(char *filename)
     }
     
     // DONE
-    if (fp)
+    if (fd)
     {
-        fclose(fp);
-        fp = NULL;
+        close(fd);
+        fd = 0;
     }
     return file_contents;
 }
