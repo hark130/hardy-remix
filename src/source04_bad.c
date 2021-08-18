@@ -15,7 +15,7 @@
 #include <string.h>
 
 
-#define BINARY_NAME "source04_best.bin"
+#define BINARY_NAME "source04_bad.bin"
 #define PASSWORD "fuzzy"
 #define BUF_LEN 65
 
