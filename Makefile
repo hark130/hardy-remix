@@ -26,6 +26,18 @@ MEMWATCH_SOURCE = memwatch.c
 # Necessary flags to "activate" Memwatch functionality
 MEMWATCH_FLAGS = -DMEMWATCH -DMW_STDIO -g
 
+# HARE variables
+HARE_BIN_NAME = "\"default_bin_name\""
+HARE_FLAGS = -DBINARY_NAME=$(HARE_BIN_NAME)
+
+hare:
+	$(CC) $(CFLAGS) $(HARE_FLAGS) -o $(DIST)HARE_library_bad.o -c $(CODE)HARE_library_bad.c
+	$(CC) $(CFLAGS) $(HARE_FLAGS) -o $(DIST)HARE_library_best.o -c $(CODE)HARE_library_best.c
+
+library:
+	$(MAKE) hare
+	$(MAKE) memwatch
+
 memwatch:
 	$(CC) $(CFLAGS) $(MEMWATCH_FLAGS) -o $(DIST)memwatch.o -c $(MEMWATCH_DIR)$(MEMWATCH_SOURCE)
 
@@ -64,10 +76,14 @@ source06:
 
 # This rule was created to facilitate making an AFL++ test harness
 source07:
+	$(CC) $(CFLAGS) -DBINARY_NAME="\"source07_bad.bin\"" -o $(DIST)HARE_library_bad.o -c $(CODE)HARE_library_bad.c
+	$(CC) $(CFLAGS) -DBINARY_NAME="\"source07_best.bin\"" -o $(DIST)HARE_library_best.o -c $(CODE)HARE_library_best.c
 	$(CC) $(CFLAGS) -o $(DIST)source07_bad.o -c $(CODE)source07_bad.c
 	$(CC) $(CFLAGS) -o $(DIST)source07_best.o -c $(CODE)source07_best.c
-	$(CC) $(CFLAGS) -o $(DIST)source07_bad.bin $(DIST)source07_bad.o
-	$(CC) $(CFLAGS) -o $(DIST)source07_best.bin $(DIST)source07_best.o
+	$(CC) $(CFLAGS) -o $(DIST)source07_test_harness.o -c $(CODE)source07_test_harness.c
+	$(CC) $(CFLAGS) -o $(DIST)source07_bad.bin $(DIST)source07_bad.o $(DIST)HARE_library_bad.o
+	$(CC) $(CFLAGS) -o $(DIST)source07_best.bin $(DIST)source07_best.o $(DIST)HARE_library_best.o
+# 	$(CC) $(CFLAGS) -Wl,--entry=test_harness -o $(DIST)source07_test_harness_bad.bin $(DIST)source07_bad.o $(DIST)source07_test_harness.o
 
 waiting:
 	$(CC) $(CFLAGS) -o $(DIST)waiting.o -c $(CODE)waiting.c
@@ -83,7 +99,7 @@ all_source:
 
 all:
 	$(MAKE) clean
-	$(MAKE) memwatch
+	$(MAKE) library
 	$(MAKE) all_source
 
 clean:
