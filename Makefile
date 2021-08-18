@@ -62,6 +62,11 @@ source06:
 	$(AFLCC) $(CFLAGS) -I$(MEMWATCH_DIR) -o $(DIST)source06_bad_AFL.bin $(CODE)source06_bad.c $(CODE)HARE_memwatch.c
 	$(AFLCC) $(CFLAGS) -I$(MEMWATCH_DIR) -fsanitize=address -o $(DIST)source06_bad_AFL_ASAN.bin $(CODE)source06_bad.c $(CODE)HARE_memwatch.c
 
+# This rule was created to facilitate making an AFL++ test harness
+source07:
+	$(CC) $(CFLAGS) -o $(DIST)source07_best.o -c $(CODE)source07_best.c
+	$(CC) $(CFLAGS) -o $(DIST)source07_best.bin $(DIST)source07_best.o
+
 waiting:
 	$(CC) $(CFLAGS) -o $(DIST)waiting.o -c $(CODE)waiting.c
 	$(CC) $(CFLAGS) -o $(DIST)waiting.bin $(DIST)waiting.o
@@ -71,6 +76,7 @@ all_source:
 	$(MAKE) source04
 	$(MAKE) source05
 	$(MAKE) source06
+	$(MAKE) source07
 	$(MAKE) waiting
 
 all:
