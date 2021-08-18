@@ -12,7 +12,7 @@
 #include <unistd.h>    // close(), read()
 
 #define LOGGING 0  // 1 for on
-#define BINARY_NAME "source07_best.bin"
+#define BINARY_NAME "source07_bad.bin"
 #define LOG_IT(msg) do { if (LOGGING) log_it(msg); } while (0)
 
 
