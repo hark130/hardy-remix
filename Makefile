@@ -87,6 +87,8 @@ source07:
 	$(CC) $(CFLAGS) -o $(DIST)source07_test_harness_best.bin $(DIST)source07_test_harness.o $(DIST)HARE_library_best.o
 	$(AFLCC) $(CFLAGS) -DBINARY_NAME="\"source07_bad.bin\"" -o $(DIST)source07_test_harness_bad_AFL.bin $(CODE)HARE_library_bad.c $(CODE)source07_test_harness.c
 	$(AFLCC) $(CFLAGS) -DBINARY_NAME="\"source07_bad.bin\"" -fsanitize=address -o $(DIST)source07_test_harness_bad_AFL_ASAN.bin $(CODE)HARE_library_bad.c $(CODE)source07_test_harness.c
+	$(AFLCC) $(CFLAGS) -DBINARY_NAME="\"source07_best.bin\"" -o $(DIST)source07_test_harness_best_AFL.bin $(CODE)HARE_library_best.c $(CODE)source07_test_harness.c
+	$(AFLCC) $(CFLAGS) -DBINARY_NAME="\"source07_best.bin\"" -fsanitize=address -o $(DIST)source07_test_harness_best_AFL_ASAN.bin $(CODE)HARE_library_best.c $(CODE)source07_test_harness.c
 
 waiting:
 	$(CC) $(CFLAGS) -o $(DIST)waiting.o -c $(CODE)waiting.c
