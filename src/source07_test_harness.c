@@ -320,7 +320,7 @@ char *prepend_test_input(char *filename, char *prepend)
     char *new_test_offset = NULL;  // Starting address of the old_test_input inside the new_test_input
 
     // INPUT VALIDATION
-    if (filename && *filename)
+    if (filename && *filename && prepend)
     {
         old_test_input = read_test_file(filename, &buff_size);
         // fprintf(stderr, "OLD TEST INPUT: %s\n", old_test_input);  // DEBUGGING
@@ -347,6 +347,8 @@ char *prepend_test_input(char *filename, char *prepend)
                 // fprintf(stderr, "ERROR: calloc failed with %s\n", strerror(errno));  // DEBUGGING
                 error++;
             }
+            free(old_test_input);
+            old_test_input = NULL;
         }
         else
         {
