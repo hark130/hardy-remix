@@ -20,7 +20,7 @@ An investigation of American Fuzzy Lop++ (AFL) as a fuzzer
 
 ```
 docker pull aflplusplus/aflplusplus
-docker run -ti --mount type=tmpfs,destination=/ramdisk -e AFL_TMPDIR=/ramdisk -v `pwd`/hardy-remix:/HARE aflplusplus/aflplusplus
+docker run -ti --rm --mount type=tmpfs,destination=/ramdisk -e AFL_TMPDIR=/ramdisk -v `pwd`/hardy-remix:/HARE aflplusplus/aflplusplus
 ```
 
 #### Execute AFL++
