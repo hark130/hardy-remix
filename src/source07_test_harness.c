@@ -78,6 +78,11 @@ int main(int argc, char *argv[])
     // DO IT
     // 1. Read file containing test input
     // fprintf(stderr, "ARGV[1]: %s\n", filename);  // DEBUGGING
+    // char temp_cmd[1025] = { "ARGV[1]: %s\n >> /tmp/temp_output" };  // DEBUGGING
+    // size_t temp_size = 0;  // DEBUGGING
+    // snprintf(temp_cmd, 1024, filename);  // DEBUGGING
+    // free(read_from_process(temp_cmd, &temp_size));  // DEBUGGING
+
     if (1 == check_dir("/ramdisk"))
     {
         test_filename = prepend_test_input(filename, "/ramdisk/");
@@ -102,7 +107,10 @@ int main(int argc, char *argv[])
             file_exists = 1;
 
             // Get fuzzed content
-            test_content = get_fuzzed_contents("This is my file.\nThere are many like it but this one is mine.\n", &content_size);
+            // test_content = get_fuzzed_contents("This is my file.\nThere are many like it but this one is mine.\n", &content_size);
+            // test_content = get_fuzzed_contents("This is my file.\n", &content_size);
+            test_content = get_fuzzed_contents("file", &content_size);
+
 
             if (test_content && content_size > 0)
             {
@@ -138,6 +146,7 @@ int main(int argc, char *argv[])
         }
     }
     // 3. Execute
+    // fprintf(stderr, "TEST FILENAME: %s\n", test_filename);  // DEBUGGING
     success = do_it(test_filename);  // Test
     // 4. Delete file
     if (1 == file_exists)
@@ -238,6 +247,7 @@ char *get_fuzzed_contents(char *original, size_t *buff_size)
     int error = 1;           // Controls flow as a boolean
     int errnum = 0;          // Store errno values
     char template[] = { "echo \"%s\" | radamsa" };
+    // char template[] = { "echo \"%s\"" };
 
     // INPUT VALIDATION
     if (original && *original && buff_size)
