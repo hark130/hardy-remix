@@ -25,9 +25,25 @@ docker run -ti --rm --mount type=tmpfs,destination=/ramdisk -e AFL_TMPDIR=/ramdi
 
 #### Execute AFL++
 
+##### Base AFL++
+
 ```
-echo "This is my test input.  There are many like it but this one is mine." > test/input01/test_input.txt
+echo -n "some_file.txt" > test/input01/test_input.txt
 afl-fuzz -D -i test/afl/input01/ -o test/afl/output01/ dist/source06_bad_AFL.bin @@
+```
+
+##### AFL++ w/ Test Harness
+
+```
+echo -n "some_file.txt" > test/input02/test_input.txt
+afl-fuzz -D -i test/afl/input02/ -o test/afl/output02/ dist/source07_test_harness_bad_AFL.bin @@
+```
+
+##### AFL++ w/ Test Harness and Sanitizer
+
+```
+echo -n "some_file.txt" > test/input03/test_input.txt
+afl-fuzz -D -i test/afl/input03/ -o test/afl/output03/ dist/source07_test_harness_bad_AFL_ASAN.bin @@
 ```
 
 #### AFL-Utils
@@ -61,12 +77,14 @@ afl-fuzz -D -i test/afl/input01/ -o test/afl/output01/ dist/source06_bad_AFL.bin
 
 ## TEST RESULTS
 
-| Filename     | Description                                      |
-| :----------- | :----------------------------------------------- |
-| source01_*.c | Read input and print to stdout                   |
-| source02_*.c | Print command line argument to stdout            |
-| source03_*.c | Compare input to a "password" file               |
-| source04_*.c | Read input, authenticate, and read file argument |
-| source05_*.c | Get filename from argv[1], read, and print it    |
+| Filename     | Description                                                              |
+| :----------- | :----------------------------------------------------------------------- |
+| source01_*.c | Read input and print to stdout                                           |
+| source02_*.c | Print command line argument to stdout                                    |
+| source03_*.c | Compare input to a "password" file                                       |
+| source04_*.c | Read input, authenticate, and read file argument                         |
+| source05_*.c | Get filename from argv[1], read, and print it                            |
+| source06_*.c | Get filename from argv[1], read, and print it w/ Sanitizers              |
+| source07_*.c | Get filename from argv[1], read, and print it w/ AFL test harness & ASAN |
 
-NOTE: All source files should have a 'bad', 'better', and 'best' version.
+NOTE: All source files should have a 'bad' and 'best' version.
