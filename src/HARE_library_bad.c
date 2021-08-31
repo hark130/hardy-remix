@@ -143,7 +143,7 @@ char *read_file(char *filename)
 {
     // LOCAL VARIABLES
     char *file_contents = NULL;  // Allocate mem and return
-    off_t file_size = 64;        // Size of buffer in bytes
+    off_t file_size = 512;       // Size of buffer in bytes
     FILE *fp = NULL;             // File pointer to filename
     char *curr_char_ptr = NULL;  // Temporary pointer
     char curr_char = 0x0;        // Temporary read character
