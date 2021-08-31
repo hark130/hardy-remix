@@ -72,7 +72,7 @@ source06:
 	$(CC) $(CFLAGS) -I$(MEMWATCH_DIR) $(ASANFLAGS) -o $(DIST)source06_bad_ASAN.bin $(CODE)source06_bad.c $(CODE)HARE_memwatch.c
 	$(CC) $(CFLAGS) -I$(MEMWATCH_DIR) $(MEMWATCH_FLAGS) -o $(DIST)source06_bad_Memwatch.bin $(CODE)source06_bad.c $(CODE)HARE_memwatch.c $(DIST)memwatch.o
 	$(AFLCC) $(CFLAGS) -I$(MEMWATCH_DIR) -o $(DIST)source06_bad_AFL.bin $(CODE)source06_bad.c $(CODE)HARE_memwatch.c
-	$(AFLCC) $(CFLAGS) -I$(MEMWATCH_DIR) -fsanitize=address -o $(DIST)source06_bad_AFL_ASAN.bin $(CODE)source06_bad.c $(CODE)HARE_memwatch.c
+	$(AFLCC) $(CFLAGS) -I$(MEMWATCH_DIR) $(ASANFLAGS) -o $(DIST)source06_bad_AFL_ASAN.bin $(CODE)source06_bad.c $(CODE)HARE_memwatch.c
 
 # This rule was created to facilitate making an AFL++ test harness
 source07:
@@ -88,9 +88,9 @@ source07:
 	$(CC) $(CFLAGS) $(ASANFLAGS) -o $(DIST)source07_test_harness_bad_ASAN.bin $(CODE)source07_test_harness.c $(CODE)HARE_library_bad.c
 	$(CC) $(CFLAGS) $(ASANFLAGS) -o $(DIST)source07_test_harness_best_ASAN.bin $(CODE)source07_test_harness.c $(CODE)HARE_library_best.c
 	$(AFLCC) $(CFLAGS) -DBINARY_NAME="\"source07_bad.bin\"" -o $(DIST)source07_test_harness_bad_AFL.bin $(CODE)HARE_library_bad.c $(CODE)source07_test_harness.c
-	$(AFLCC) $(CFLAGS) -DBINARY_NAME="\"source07_bad.bin\"" -fsanitize=address -o $(DIST)source07_test_harness_bad_AFL_ASAN.bin $(CODE)HARE_library_bad.c $(CODE)source07_test_harness.c
+	$(AFLCC) $(CFLAGS) -DBINARY_NAME="\"source07_bad.bin\"" $(ASANFLAGS) -o $(DIST)source07_test_harness_bad_AFL_ASAN.bin $(CODE)HARE_library_bad.c $(CODE)source07_test_harness.c
 	$(AFLCC) $(CFLAGS) -DBINARY_NAME="\"source07_best.bin\"" -o $(DIST)source07_test_harness_best_AFL.bin $(CODE)HARE_library_best.c $(CODE)source07_test_harness.c
-	$(AFLCC) $(CFLAGS) -DBINARY_NAME="\"source07_best.bin\"" -fsanitize=address -o $(DIST)source07_test_harness_best_AFL_ASAN.bin $(CODE)HARE_library_best.c $(CODE)source07_test_harness.c
+	$(AFLCC) $(CFLAGS) -DBINARY_NAME="\"source07_best.bin\"" $(ASANFLAGS) -o $(DIST)source07_test_harness_best_AFL_ASAN.bin $(CODE)HARE_library_best.c $(CODE)source07_test_harness.c
 
 waiting:
 	$(CC) $(CFLAGS) -o $(DIST)waiting.o -c $(CODE)waiting.c
