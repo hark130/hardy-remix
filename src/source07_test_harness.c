@@ -1,5 +1,6 @@
 #include <errno.h>         // errno
 #include <fcntl.h>         // open()
+#include <signal.h>        // raise(), signal(), sa_handler
 #include <stdio.h>         // fprintf(), remove(), snprintf()
 #include <stdint.h>        // SIZE_MAX
 #include <stdlib.h>        // calloc()
@@ -13,6 +14,17 @@
 #define ENOERR 0
 #endif  // ENOERR
 
+#ifndef __USE_GNU
+#define __USE_GNU  // Get access to sighandler_t
+#endif  // __USE_GNU
+
+#ifndef sighandler_t
+typedef __sighandler_t sighandler_t;
+#endif  // sighandler_t
+
+#define LOG_FILENAME "/tmp/log_file.txt"  // Log here
+
+sighandler_t old_sig_handlers[128] = { NULL };
 
 /*
  *  Check to see if dirname exists: Returns 1 if exists, 0 if not, -1 on error
@@ -27,9 +39,27 @@ char *create_system_cmd(char *filename);
 
 
 /*
+ *  Append a log message to LOG_FILENAME
+ */
+void log_external(char *log_entry);
+
+
+/*
  *  Uses radasma to fuzz original, read the output, store it in heap-allocated memory
  */
 char *get_fuzzed_contents(char *original, size_t *buff_size);
+
+
+/*
+ *  Signal handler append signal number message to LOG_FILENAME
+ */
+void log_signal(int sigNum);
+
+
+/*
+ *  Logs all caught signals
+ */
+void log_signals(void);
 
 
 /*
@@ -77,11 +107,7 @@ int main(int argc, char *argv[])
 
     // DO IT
     // 1. Read file containing test input
-    // fprintf(stderr, "ARGV[1]: %s\n", filename);  // DEBUGGING
-    // char temp_cmd[1025] = { "ARGV[1]: %s\n >> /tmp/temp_output" };  // DEBUGGING
-    // size_t temp_size = 0;  // DEBUGGING
-    // snprintf(temp_cmd, 1024, filename);  // DEBUGGING
-    // free(read_from_process(temp_cmd, &temp_size));  // DEBUGGING
+    log_external(filename);  // DEBUGGING
 
     if (1 == check_dir("/ramdisk"))
     {
@@ -119,11 +145,13 @@ int main(int argc, char *argv[])
                 {
                     errnum = errno;
                     fprintf(stderr, "Unable to write to %s.\nERROR: %s\n", test_filename, strerror(errnum));
+                    log_external("Unable to write file");  // DEBUGGING
                 }
             }
             else
             {
                 fprintf(stderr, "Failed to fuzz content.\n");
+                log_external("Failed to fuzz content");  // DEBUGGING
             }
 
             // Close
@@ -131,11 +159,13 @@ int main(int argc, char *argv[])
             {
                 errnum = errno;
                 fprintf(stderr, "Unable to synchronize %s.\nERROR: %s\n", test_filename, strerror(errnum));
+                log_external("Unable to sychronize");  // DEBUGGING
             }
             if (close(fd))
             {
                 errnum = errno;
                 fprintf(stderr, "Unable to close %s.\nERROR: %s\n", test_filename, strerror(errnum));
+                log_external("Unable to close");  // DEBUGGING
             }
             fd = -1;
         }
@@ -143,10 +173,13 @@ int main(int argc, char *argv[])
         {
             errnum = errno;
             fprintf(stderr, "Unable to make file %s.\nERROR: %s\n", test_filename, strerror(errnum));
+            log_external(test_filename);  // DEBUGGING
+            log_external("Failed to create file");  // DEBUGGING
         }
     }
     // 3. Execute
     // fprintf(stderr, "TEST FILENAME: %s\n", test_filename);  // DEBUGGING
+    // log_signals();  // DEBUGGING?
     success = do_it(test_filename);  // Test
     // 4. Delete file
     if (1 == file_exists)
@@ -155,6 +188,7 @@ int main(int argc, char *argv[])
         {
             errnum = errno;
             fprintf(stderr, "Unable to delete %s.\nERROR: %s\n", test_filename, strerror(errnum));
+            log_external("Failed to delete file");  // DEBUGGING
         }
     }
 
@@ -316,6 +350,129 @@ char *get_fuzzed_contents(char *original, size_t *buff_size)
         }
     }
     return fuzz_buff;
+}
+
+
+void log_external(char *log_entry)
+{
+    // LOCAL VARIABLES
+    char temp_cmd[1025] = { "echo \"%s\" >> %s" };  // Template command
+    char *full_cmd = NULL;                          // Heap allocated buffer w/ completed command
+    char *temp_out = NULL;                          // Output from process execution
+    size_t full_size = 0;                           // Necessary size to allocate full_cmd
+    size_t temp_size = 0;                           // Out parameter for read_from_process()
+
+    // LOG IT
+    if (log_entry && *log_entry)
+    {
+        // Size Full Command
+        full_size = strlen(temp_cmd) + strlen(log_entry) + strlen(LOG_FILENAME);
+        // Allocate Buffer
+        full_cmd = calloc(full_size + 1, sizeof(char));
+        if (full_cmd)
+        {
+            // Construct Full Command
+            snprintf(full_cmd, full_size, temp_cmd, log_entry, LOG_FILENAME);
+            temp_out = read_from_process(full_cmd, &temp_size);
+        }
+    }
+
+    // DONE
+    if (full_cmd)
+    {
+        free(full_cmd);
+        full_cmd = NULL;
+    }
+    if (temp_out)
+    {
+        free(temp_out);
+        temp_out = NULL;
+    }
+}
+
+
+void log_signal(int sigNum)
+{
+    // LOCAL VARIABLES
+    FILE *log_file = NULL;  // Log filename
+    int errNum = 0;        // Store errno here upon error
+    char template[] = { "Received signal #%02d\n" };  // Template message to log
+    char message[65] = { 0 };
+
+    // DO IT
+    // 1. LOG IT
+    // Open
+    log_file = fopen(LOG_FILENAME, "a+");
+    if (log_file)
+    {
+        // Format message
+        if (snprintf(message, 64, template, sigNum) < 0)
+        {
+            fprintf(stderr, "Call to snprintf() failed.\n");
+        }
+        // Write
+        else
+        {
+            if (65 != fwrite(message, sizeof(char), 65, log_file))
+            {
+               fprintf(stderr, "Call to fwrite() failed.\n");
+            }
+        }
+        // Close
+        fclose(log_file);
+        log_file = NULL;
+    }
+    else
+    {
+        errNum = errno;
+        fprintf(stderr, "Failed to open %s with: %s\n", LOG_FILENAME, strerror(errNum));
+    }
+    // 2. SIGNAL IT
+    // Reregister signal as default
+    if (SIG_ERR == signal(sigNum, old_sig_handlers[sigNum]))
+    {
+        errNum = errno;
+        fprintf(stderr, "Call to signal(%d) failed with: %s\n", sigNum, strerror(errNum));
+    }
+    // Raise
+    else if (raise(sigNum))
+    {
+        errNum = errno;
+        fprintf(stderr, "Call to raise(%d) failed with: %s\n", sigNum, strerror(errNum));
+    }
+}
+
+
+void log_signals(void)
+{
+    // LOCAL VARIBLES
+    int sigNum = 1;                  // Signal numbers to iterate through
+    int errNum = 0;                  // Store errno here upon error
+    sighandler_t temp_sig_hdlr = 0;  // Temp storage for old signal handlers
+
+    // DO IT
+    // Set ALL the actions
+    for (sigNum = 1; sigNum <= SIGRTMAX; sigNum++)
+    {
+        if (sigNum == SIGKILL || sigNum == SIGSTOP || sigNum == 32 || sigNum == 33)
+        {
+            // Skipping SIGKILL == 9    // Can't ignore
+            // Skipping SIGSTOP == 19   // Can't ignore
+        }
+        else
+        {
+            temp_sig_hdlr = signal(sigNum, log_signal);
+            if (SIG_ERR == temp_sig_hdlr)
+            {
+                errNum = errno;
+                fprintf(stderr, "Call to signal(%d) failed with: %s\n", sigNum, strerror(errNum));
+            }
+            else
+            {
+                old_sig_handlers[sigNum] = temp_sig_hdlr;
+            }
+        }
+    }
 }
 
 
