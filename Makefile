@@ -111,6 +111,9 @@ source07_honggfuzz:
 source08:
 	$(CC) $(CFLAGS) -DBINARY_NAME="\"source08_bad.bin\"" -o $(DIST)HARE_library_bad.o -c $(CODE)HARE_library_bad.c
 	$(CC) $(CFLAGS) -DBINARY_NAME="\"source08_best.bin\"" -o $(DIST)HARE_library_best.o -c $(CODE)HARE_library_best.c
+	$(CC) $(CFLAGS) -o $(DIST)source08_test_harness.o -c $(CODE)source08_test_harness.c
+	$(CC) $(CFLAGS) -o $(DIST)source08_test_harness_bad.bin $(DIST)source08_test_harness.o $(DIST)HARE_library_bad.o
+	$(CC) $(CFLAGS) -o $(DIST)source08_test_harness_best.bin $(DIST)source08_test_harness.o $(DIST)HARE_library_best.o
 
 waiting:
 	$(CC) $(CFLAGS) -o $(DIST)waiting.o -c $(CODE)waiting.c
