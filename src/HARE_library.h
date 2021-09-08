@@ -5,14 +5,28 @@
 #ifndef __HARE_LIBRARY__
 #define __HARE_LIBRARY__
 
-#include <stdio.h>         // NULL
-#include <sys/types.h>     // off_t
+#include <stdio.h>      // NULL
+#include <sys/types.h>  // off_t
+#include <syslog.h>     // syslog(), LOG_* macros
+
+// Settings for INotify folder watcher thread
+typedef struct _INotifySettings
+{
+    char *watched;       // Dir(s) to watch
+    char *process;     // Directory (rel to watch) to move processed files into
+} INotifySettings;
+
+// Holds the configuration data
+typedef struct _Configuration
+{
+    INotifySettings inotify;  // INotify folder watcher settings
+} Configuration;
 
 
 /*
  * Mirrors SURE's main() in that it acts as Linux-style daemon loader by fork()ing and exiting, thus releasing control
  */
-void be_sure(void);
+void be_sure(Configuration *config);
 
 
 /*

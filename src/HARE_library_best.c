@@ -14,7 +14,6 @@
 #include <stdbool.h>   // bool
 #include <stdlib.h>    // calloc(), free()
 #include <string.h>    // strlen(), strstr()
-#include <syslog.h>    // syslog(), LOG_* macros
 #include <unistd.h>    // close(), read()
 #include "HARE_library.h"
 
@@ -224,9 +223,39 @@ void cleanupDaemon()
 /*************************************** LIBRARY FUNCTIONS ***************************************/
 /*************************************************************************************************/
 
-void be_sure(void)
+void be_sure(Configuration *config)
 {
-    if (isRootUser())
+    // LOCAL VARIABLES
+    int success = true;  // Flow control
+
+    // INPUT VALIDATION
+    // config
+    if (!config)
+    {
+        fprintf(stderr, "NULL Configuration pointer.\n");
+        success = false;
+    }
+    // Configuration.inotify
+    else if (NULL == config->inotify.watched)
+    {
+        fprintf(stderr, "NULL watched directory.\n");
+        success = false;
+    }
+    else if (NULL == config->inotify.process)
+    {
+        fprintf(stderr, "NULL process directory.\n");
+        success = false;
+    }
+
+    // ENVIRONMENT VALIDATION
+    if (false == isRootUser())
+    {
+        fprintf(stderr, "Daemon must be run with root privileges.\n");
+        success = false;
+    }
+
+    // BE SURE
+    if (true == success)
     {
         daemonize();
         // if (!setup(&config, &context))
@@ -236,10 +265,6 @@ void be_sure(void)
         // }
         // teardown(&config, &context);
         cleanupDaemon();
-    }
-    else
-    {
-        fprintf(stderr, "Daemon must be run with root privileges.\n");
     }
 }
 
