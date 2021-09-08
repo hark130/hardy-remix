@@ -52,6 +52,42 @@ off_t size_file(char *filename);
 
 
 /*
+ *  Minimally mirrors logIt() from SURE_logging.h
+ *  logLevels:
+ *      LOG_EMERG      system is unusable
+ *      LOG_ALERT      action must be taken immediately
+ *      LOG_CRIT       critical conditions
+ *      LOG_ERR        error conditions
+ *      LOG_WARNING    warning conditions
+ *      LOG_NOTICE     normal, but significant, condition
+ *      LOG_INFO       informational message
+ *      LOG_DEBUG      debug-level message
+ */
+void syslog_it(int logLevel, char *msg);
+
+
+/*
+ *  Minimally mirrors logIt2() from SURE_logging.h
+ *  logLevels:
+ *      LOG_EMERG      system is unusable
+ *      LOG_ALERT      action must be taken immediately
+ *      LOG_CRIT       critical conditions
+ *      LOG_ERR        error conditions
+ *      LOG_WARNING    warning conditions
+ *      LOG_NOTICE     normal, but significant, condition
+ *      LOG_INFO       informational message
+ *      LOG_DEBUG      debug-level message
+ */
+void syslog_it2(int logLevel, char *msg, ...);
+
+
+/*
+ *  Minimally mirrors logErrno() from SURE_logging.h
+ */
+void syslog_errno(int errNum, char *msg, ...);
+
+
+/*
  *  Prints usage instructions on option match or returns argOne
  */
 char *validate_arg(char *argOne);

@@ -9,10 +9,71 @@
 #include <sys/types.h>
 #include <sys/stat.h>  // stat()
 #include <fcntl.h>
+#include <stdarg.h>    // va_end(), va_start()
+#include <stdbool.h>   // bool
 #include <stdlib.h>    // calloc(), free()
 #include <string.h>    // strlen(), strstr()
+#include <syslog.h>    // syslog(), LOG_* macros
 #include <unistd.h>    // close(), read()
 #include "HARE_library.h"
+
+/*
+ * Stolen from https://opensource.apple.com/source/xnu/xnu-344/bsd/sys/syslog.h.auto.html
+ */
+typedef struct _code {
+    char *name;
+    int  value;
+} CODE;
+
+/*
+ * Updated version of code grabbed from bsd syslog header. Reflects SURE values.
+ */
+CODE priorityNames[] =
+{
+   {"UNKNOWN",   -2},
+   {"ALERT",     LOG_ALERT},
+   {"CRITICAL",  LOG_CRIT},
+   {"DEBUG",     LOG_DEBUG},
+   {"EMERGENCY", LOG_EMERG},
+   {"ERROR",     LOG_ERR},
+   {"INFO",      LOG_INFO},
+   {"NOTICE",    LOG_NOTICE},
+   {"WARNING",   LOG_WARNING},
+   {NULL,        -1},
+};
+
+// An arbitrarily large maximum log message size has been chosen in an attempt to accommodate
+//  calls to logging functions that take variable length arguments and accept printf()-family
+//  "format strings".  These cases make it difficult to determine the ultimate string length
+//  at runtime.
+#define MAX_LOG_SIZE 32768
+
+
+/*
+ * function: getPriorityString
+ * description: Returns the descriptive string for the integer priority
+ *
+ * priority: The logging priority
+ *
+ * return: String containing priority level
+ */
+char *getPriorityString(int priority)
+{
+    bool found = false;
+    CODE *priorities = priorityNames;
+    char *name  = priorities->name;
+
+    while (NULL != priorities->name && !found)
+    {
+        if (priorities->value == priority)
+        {
+            name = priorities->name;
+            found = true;
+        }
+        priorities++;
+    }
+    return name;
+}
 
 
 // Different than the "good" version
@@ -213,6 +274,76 @@ off_t size_file(char *filename)
 
     // DONE
     return size;
+}
+
+
+void syslog_it(int logLevel, char *msg)
+{
+    openlog(BINARY_NAME, LOG_PID, LOG_DAEMON);                        // System call returns void
+    // Log formatted msg
+    syslog(logLevel, "[%s] %s", getPriorityString(logLevel), msg);  // System call returns void
+    closelog();
+}
+
+
+void syslog_it2(int logLevel, char *msg, ...)
+{
+    // LOCAL VARIABLES
+    char message[MAX_LOG_SIZE] = {0};  // Holds the output version of the message
+    va_list args;                      // Needed for variable length arguments
+
+    // DO IT
+    va_start(args, msg);
+    // Use n version to prevent buffer overflow
+    vsnprintf(message, sizeof(message), msg, args);
+    syslog_it(logLevel, message);
+    va_end(args);
+}
+
+
+void syslog_errno(int errNum, char *msg, ...)
+{
+    // LOCAL VARIABLES
+    char tempMsg[256] = {0};           // Holds the temporary errno string
+    char message[MAX_LOG_SIZE] = {0};  // Holds the output version of the message
+    char *buffer = NULL;               // Malloced buffer if message is exceeded
+    size_t msgLen = 0;                 // Holds temporary string length
+    size_t tmpLen = 0;                 // Holds the message length
+    va_list args;                      // Needed for variable length arguments
+
+    // DO IT
+    va_start(args, msg);
+
+    // Use n version to prevent buffer overflow
+    vsnprintf(message, sizeof(message), msg, args);
+    snprintf(tempMsg, sizeof(tempMsg), " ERRNO: %d Reason: %s", errNum, strerror(errNum));
+    tmpLen = strlen(tempMsg);
+    msgLen = strlen(message);
+    if (sizeof(message) > (msgLen + tmpLen))
+    {
+        strcat(message, tempMsg);
+        syslog_it(LOG_ERR, message);
+    }
+    else
+    {
+        buffer = calloc(msgLen + tmpLen + 1, sizeof(char));
+        if (buffer)
+        {
+            strcpy(buffer, message);
+            strcat(buffer, tempMsg);
+            syslog_it(LOG_ERR, buffer);
+            free(buffer);
+            buffer = NULL;
+        }
+        else
+        {
+            syslog_it(LOG_ERR, message);
+            syslog_it(LOG_ERR, tempMsg);
+        }
+    }
+
+    // CLEANUP
+    va_end(args);
 }
 
 
