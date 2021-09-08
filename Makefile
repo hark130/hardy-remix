@@ -10,6 +10,10 @@ CODE = ./src/
 # 1. AMERICAN FUZZY LOP++ (AFL++)
 AFLCC = afl-gcc-fast
 
+# 2. HONGGFUZZ
+HGFUZZCC = hfuzz-gcc
+HONGFLAGS = -fsanitize-coverage=trace-pc -O3 -fno-omit-frame-pointer -ggdb -Wno-error
+
 
 #######################
 # SANITIZER VARIABLES #
@@ -74,7 +78,6 @@ source06:
 	$(AFLCC) $(CFLAGS) -I$(MEMWATCH_DIR) -o $(DIST)source06_bad_AFL.bin $(CODE)source06_bad.c $(CODE)HARE_memwatch.c
 	$(AFLCC) $(CFLAGS) -I$(MEMWATCH_DIR) $(ASANFLAGS) -o $(DIST)source06_bad_AFL_ASAN.bin $(CODE)source06_bad.c $(CODE)HARE_memwatch.c
 
-# This rule was created to facilitate making an AFL++ test harness
 source07:
 	$(CC) $(CFLAGS) -DBINARY_NAME="\"source07_bad.bin\"" -o $(DIST)HARE_library_bad.o -c $(CODE)HARE_library_bad.c
 	$(CC) $(CFLAGS) -DBINARY_NAME="\"source07_best.bin\"" -o $(DIST)HARE_library_best.o -c $(CODE)HARE_library_best.c
@@ -87,10 +90,27 @@ source07:
 	$(CC) $(CFLAGS) -o $(DIST)source07_test_harness_best.bin $(DIST)source07_test_harness.o $(DIST)HARE_library_best.o
 	$(CC) $(CFLAGS) $(ASANFLAGS) -o $(DIST)source07_test_harness_bad_ASAN.bin $(CODE)source07_test_harness.c $(CODE)HARE_library_bad.c
 	$(CC) $(CFLAGS) $(ASANFLAGS) -o $(DIST)source07_test_harness_best_ASAN.bin $(CODE)source07_test_harness.c $(CODE)HARE_library_best.c
+	$(MAKE) source07_afl
+	$(MAKE) source07_honggfuzz
+
+# This rule was created to facilitate making an AFL++ test harness
+source07_afl:
 	$(AFLCC) $(CFLAGS) -DBINARY_NAME="\"source07_bad.bin\"" -o $(DIST)source07_test_harness_bad_AFL.bin $(CODE)HARE_library_bad.c $(CODE)source07_test_harness.c
 	$(AFLCC) $(CFLAGS) -DBINARY_NAME="\"source07_bad.bin\"" $(ASANFLAGS) -o $(DIST)source07_test_harness_bad_AFL_ASAN.bin $(CODE)HARE_library_bad.c $(CODE)source07_test_harness.c
 	$(AFLCC) $(CFLAGS) -DBINARY_NAME="\"source07_best.bin\"" -o $(DIST)source07_test_harness_best_AFL.bin $(CODE)HARE_library_best.c $(CODE)source07_test_harness.c
 	$(AFLCC) $(CFLAGS) -DBINARY_NAME="\"source07_best.bin\"" $(ASANFLAGS) -o $(DIST)source07_test_harness_best_AFL_ASAN.bin $(CODE)HARE_library_best.c $(CODE)source07_test_harness.c
+
+# This rule was created to facilitate making Honggfuzz test harnesses
+source07_honggfuzz:
+	$(HGFUZZCC) $(CFLAGS) -DBINARY_NAME="\"source07_bad.bin\"" -g $(HONGFLAGS) -o $(DIST)source07_test_harness_bad_HGFUZZ.bin $(CODE)HARE_library_bad.c $(CODE)source07_test_harness.c
+	$(HGFUZZCC) $(CFLAGS) -DBINARY_NAME="\"source07_bad.bin\"" $(ASANFLAGS) -o $(DIST)source07_test_harness_bad_HGFUZZ_ASAN.bin $(CODE)HARE_library_bad.c $(CODE)source07_test_harness.c
+	$(HGFUZZCC) $(CFLAGS) -DBINARY_NAME="\"source07_best.bin\"" -g $(HONGFLAGS) -o $(DIST)source07_test_harness_best_HGFUZZ.bin $(CODE)HARE_library_best.c $(CODE)source07_test_harness.c
+	$(HGFUZZCC) $(CFLAGS) -DBINARY_NAME="\"source07_best.bin\"" $(ASANFLAGS) -o $(DIST)source07_test_harness_best_HGFUZZ_ASAN.bin $(CODE)HARE_library_best.c $(CODE)source07_test_harness.c
+
+# This rule was created to replicate the behavior of a basic Linux daemon
+source08:
+	$(CC) $(CFLAGS) -DBINARY_NAME="\"source08_bad.bin\"" -o $(DIST)HARE_library_bad.o -c $(CODE)HARE_library_bad.c
+	$(CC) $(CFLAGS) -DBINARY_NAME="\"source08_best.bin\"" -o $(DIST)HARE_library_best.o -c $(CODE)HARE_library_best.c
 
 waiting:
 	$(CC) $(CFLAGS) -o $(DIST)waiting.o -c $(CODE)waiting.c
@@ -102,6 +122,8 @@ all_source:
 	$(MAKE) source05
 	$(MAKE) source06
 	$(MAKE) source07
+	$(MAKE) source07_afl
+	$(MAKE) source07_honggfuzz
 	$(MAKE) waiting
 
 all:
