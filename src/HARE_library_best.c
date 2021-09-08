@@ -8,6 +8,7 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>  // stat()
+#include <errno.h>     // errno
 #include <fcntl.h>
 #include <stdarg.h>    // va_end(), va_start()
 #include <stdbool.h>   // bool
@@ -49,6 +50,10 @@ CODE priorityNames[] =
 #define MAX_LOG_SIZE 32768
 
 
+/*************************************************************************************************/
+/**************************************** LOCAL FUNCTIONS ****************************************/
+/*************************************************************************************************/
+
 /*
  * function: getPriorityString
  * description: Returns the descriptive string for the integer priority
@@ -73,6 +78,169 @@ char *getPriorityString(int priority)
         priorities++;
     }
     return name;
+}
+
+
+/*
+ * Closes the standard streams (stdin, stdout, and stderr)
+ * Copy/paste from SURE
+ */
+int closeStdStreams()
+{
+    int status = 0;  // Return value
+
+    if (EOF == fclose(stdin))
+    {
+        syslog_errno(errno, "Failed to close stdin file stream");
+        status = -1;
+    }
+    if (EOF == fclose(stdout))
+    {
+        syslog_errno(errno, "Failed to close stdout file stream");
+        status = -1;
+    }
+    if (EOF == fclose(stderr))
+    {
+        syslog_errno(errno, "Failed to close stderr file stream");
+        status = -1;
+    }
+
+    return status;
+}
+
+
+/*
+ * Tests euid for a value of 0
+ * Copy/paste from SURE
+ */
+bool isRootUser()
+{
+    return (0 == geteuid());  // This function does not fail
+}
+
+
+/*
+ * Closes and redirects the standard file streams (stdin, stdout, and stderr) by
+ *      overwriting them with FILE pointers to /dev/null
+ * Copy/paste from SURE
+ */
+int redirectStdStreams()
+{
+    int status = 0;                  // Return value
+    const char *path = "/dev/null";  // Null path
+
+    // Close
+    closeStdStreams();  // Continue execution on error
+
+    // Redirect
+    stdin = fopen(path, "r");
+    if (NULL == stdin)
+    {
+        syslog_errno(errno, "Failed to open stdin file stream");
+        status = -1;
+    }
+    stdout = fopen(path, "w+");
+    if (NULL == stdout)
+    {
+        syslog_errno(errno, "Failed to open stdout file stream");
+        status = -1;
+    }
+    stderr = fopen(path, "w+");
+    if (NULL == stderr)
+    {
+        syslog_errno(errno, "Failed to open stderr file stream");
+        status = -1;
+    }
+
+    return status;
+}
+
+
+/*
+ * SURE implementation of a standard Linux daemon loader
+ * Copy/paste from SURE
+ */
+void daemonize()
+{
+    pid_t pid = 0;  // Process IDentifier
+    pid_t sid = 0;  // Child process session ID
+
+    // Fork off the parent process
+    pid = fork();
+    if (pid < 0)
+    {
+        syslog_errno(errno, "Failure value from fork()");
+        syslog_it(LOG_EMERG, "Failed to fork");
+        exit(EXIT_FAILURE);  // Error
+    }
+    else if (pid > 0)
+    {
+        syslog_it(LOG_INFO, "Fork successful");
+        syslog_it(LOG_INFO, "Daemon loader is exiting");
+        exit(EXIT_SUCCESS);  // Child process successfully forked
+    }
+
+    // Child process continues here
+    syslog_it(LOG_NOTICE, "Starting SURE daemon");
+
+    // Change the file mode creation mask
+    // NOTE: This system call always succeeds
+    umask(0);
+
+    // Create a new Session ID for the child process
+    sid = setsid();
+    if (sid < 0)
+    {
+        syslog_errno(errno, "Failure value from setsid()");
+        syslog_it(LOG_EMERG, "Failed to acquire Session ID");
+    }
+    // Change the current working directory
+    else if ((chdir("/")) < 0)
+    {
+        syslog_errno(errno, "Failure value from chdir()");
+        syslog_it(LOG_EMERG, "Failed to change directory");
+    }
+    // Close out the standard file descriptors. A gentleman's agreement
+    // was reached that this function can error and that the main
+    // function will soldier on since it is not a critical error.
+    redirectStdStreams();  // Redirect the standard streams to /dev/null
+
+    // initSignalHandlers();
+}
+
+
+/*
+ * Closes all opened streams from daemonize()
+ * Copy/paste from SURE
+ */
+void cleanupDaemon()
+{
+    // Ignore any errors that might occur
+    closeStdStreams();
+}
+
+
+/*************************************************************************************************/
+/*************************************** LIBRARY FUNCTIONS ***************************************/
+/*************************************************************************************************/
+
+void be_sure(void)
+{
+    if (isRootUser())
+    {
+        daemonize();
+        // if (!setup(&config, &context))
+        // {
+        //     execute(&config, &context);
+        //     status = EXIT_SUCCESS;
+        // }
+        // teardown(&config, &context);
+        cleanupDaemon();
+    }
+    else
+    {
+        fprintf(stderr, "Daemon must be run with root privileges.\n");
+    }
 }
 
 

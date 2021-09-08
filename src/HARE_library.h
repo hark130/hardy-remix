@@ -10,6 +10,12 @@
 
 
 /*
+ * Mirrors SURE's main() in that it acts as Linux-style daemon loader by fork()ing and exiting, thus releasing control
+ */
+void be_sure(void);
+
+
+/*
  *  Verify, read, and print contents of filename
  */
 int do_it(char *filename);
