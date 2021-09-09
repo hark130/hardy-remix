@@ -22,7 +22,7 @@
 // typedef __sighandler_t sighandler_t;
 // #endif  // sighandler_t
 
-#define LOG_FILENAME "/tmp/log_file.txt"  // Log here
+// #define LOG_FILENAME "/tmp/log_file.txt"  // Log here
 // #define LOG_FILENAME "./log_file.txt"  // Log here
 
 // sighandler_t old_sig_handlers[128] = { NULL };
@@ -106,6 +106,7 @@ int main(int argc, char *argv[])
     int file_exists = 0;           // Makeshift boolean to track file creation
     int errnum = 0;                // Store errno values
     Configuration config = { 0 };  // Pass to be_sure()
+    mode_t old_umask = 0;         // Store umask() value here and restore it
 
     // DO IT
     // 1. Read file containing test input
@@ -113,18 +114,43 @@ int main(int argc, char *argv[])
 
     if (1 == check_dir("/ramdisk"))
     {
-        test_filename = prepend_test_input(filename, "/ramdisk/");
+        test_filename = prepend_test_input(filename, "/ramdisk/watch/");
+        config.inotify.watched = "/ramdisk/watch/";
+        config.inotify.process = "/ramdisk/watch/processed/";
     }
     else if (1 == check_dir("/tmp"))
     {
-        test_filename = prepend_test_input(filename, "/tmp/");
+        test_filename = prepend_test_input(filename, "/tmp/watch/");
+        config.inotify.watched = "/tmp/watch/";
+        config.inotify.process = "/tmp/watch/processed/";
     }
     else
     {
-        test_filename = prepend_test_input(filename, "./");
+        test_filename = prepend_test_input(filename, "./watch/");
+        config.inotify.watched = "./watch/";
+        config.inotify.process = "./watch/processed/";
     }
 
-    // 2. Attempt file creation
+    // 2. Setup environment
+    old_umask = umask(0);
+    if (0 == check_dir(config.inotify.watched))
+    {
+        if (0 != mkdir(config.inotify.watched, S_IRWXU | S_IRWXG | S_IRWXO))
+        {
+            errnum = errno;
+            syslog_errno(errnum, "Failed to create watch directory");
+        }
+    }
+    if (0 == check_dir(config.inotify.process))
+    {
+        if (0 != mkdir(config.inotify.process, S_IRWXU | S_IRWXG | S_IRWXO))
+        {
+            errnum = errno;
+            syslog_errno(errnum, "Failed to create process directory");
+        }
+    }
+
+    // 3. Attempt file creation
     if (test_filename)
     {
         // Create
@@ -179,9 +205,9 @@ int main(int argc, char *argv[])
             log_external("Failed to create file");  // DEBUGGING
         }
     }
-    // 3. Execute
+    // 4. Execute
     be_sure(&config);
-    // 4. Delete file
+    // 5. Delete file
     if (1 == file_exists)
     {
         if (-1 == remove(test_filename))
@@ -193,6 +219,8 @@ int main(int argc, char *argv[])
     }
 
     // DONE
+    // Restore umask
+    old_umask = umask(old_umask);
     // test_filename
     if (test_filename)
     {
