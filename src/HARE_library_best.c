@@ -48,6 +48,8 @@ CODE priorityNames[] =
 //  at runtime.
 #define MAX_LOG_SIZE 32768
 
+#define PIPE_BUFF_SIZE 2048  // Size of the local buffer in read_a_pipe()
+
 
 /*************************************************************************************************/
 /**************************************** LOCAL FUNCTIONS ****************************************/
@@ -180,7 +182,7 @@ void daemonize()
     }
 
     // Child process continues here
-    syslog_it(LOG_NOTICE, "Starting SURE daemon");
+    syslog_it(LOG_NOTICE, "Starting daemon");
 
     // Change the file mode creation mask
     // NOTE: This system call always succeeds
@@ -235,13 +237,13 @@ void be_sure(Configuration *config)
         fprintf(stderr, "NULL Configuration pointer.\n");
         success = false;
     }
-    // Configuration.inotify
-    else if (NULL == config->inotify.watched)
+    // Configuration.inotify_config
+    else if (NULL == config->inotify_config.watched)
     {
         fprintf(stderr, "NULL watched directory.\n");
         success = false;
     }
-    else if (NULL == config->inotify.process)
+    else if (NULL == config->inotify_config.process)
     {
         fprintf(stderr, "NULL process directory.\n");
         success = false;
@@ -258,12 +260,9 @@ void be_sure(Configuration *config)
     if (true == success)
     {
         daemonize();
-        // if (!setup(&config, &context))
-        // {
-        //     execute(&config, &context);
-        //     status = EXIT_SUCCESS;
-        // }
-        // teardown(&config, &context);
+
+        execute_order(config);
+
         cleanupDaemon();
     }
 }
@@ -321,6 +320,40 @@ int do_it(char *filename)
 }
 
 
+void execute_order(Configuration *config)
+{
+    // LOCAL VARIABLES
+    int success = 0;  // Holds return value from getInotifyData()
+
+    // EXECUTE ORDER 66
+    while(1)
+    {
+        // Retrieve the latest data from the message queue
+        // success = getINotifyData(config);  // TD: DDN... Implement this function with shared pipes between the test harness
+        if (1 == success)
+        {
+            syslog_it2(LOG_DEBUG, "Main: Received %s", config->inotify_message.message.buffer);
+            // Received data, now add it to the jobs queue for the threadpool
+            // thpool_add_work(threadPool, execRunner, allocContext(config, context));
+        }
+        else if (0 == success)
+        {
+            // No data available. Sleep for a brief moment and try again.
+            syslog_it(LOG_DEBUG, "Call to getINotifyData() provided no data.");
+            sleep(1);
+            syslog_it(LOG_DEBUG, "Exiting (until the test harness' getINotifyData() is implemented).");  // TD: DDN... remove once getINotifyData() is implemented
+            break;  // TD: DDN... remove once getINotifyData() is implemented
+        }
+        else
+        {
+            // Got error. Should we exit?
+            syslog_it(LOG_ERR, "Call to getINotifyData() failed.  Exiting.");
+            break;  // Yes
+        }
+    }
+}
+
+
 char *get_filename(int argc, char *argv[])
 {
     // LOCAL VARIABLES
@@ -335,6 +368,24 @@ char *get_filename(int argc, char *argv[])
 
     // DONE
     return filename;
+}
+
+
+int getINotifyData(Configuration *config)
+{
+    // LOCAL VARIABLES
+    int success = -1;  // 0 on success, -1 on error, and errnum on failure
+
+    // INPUT VALIDATION
+    if (config)
+    {
+        success = 0;
+    }
+
+    // GET IT
+
+    // DONE
+    return success;
 }
 
 
@@ -363,6 +414,65 @@ void log_it(char *log_entry, char *log_filename)
         fp = NULL;
     }
     return;
+}
+
+
+int make_pipes(int empty_pipes[2], int flags)
+{
+    // LOCAL VARIABLES
+    int success = -1;  // Returns 0 on success, -1 on bad input, errno on failure
+    int retval = 0;    // Return value from pipe()/pipe2()
+
+    // INPUT VALIDATION
+    if (empty_pipes)
+    {
+        empty_pipes[PIPE_READ] = INVALID_FD;
+        empty_pipes[PIPE_WRITE] = INVALID_FD;
+        success = 0;
+    }
+
+    // DO IT
+    if (0 == success)
+    {
+        // pipe()
+        if (flags)
+        {
+            #if defined _GNU_SOURCE && defined __USE_GNU
+            retval = pipe2(empty_pipes, flags);
+            #else
+            retval = pipe(empty_pipes);
+            #endif  // _GNU_SOURCE && __USE_GNU
+        }
+        else
+        {
+            retval = pipe(empty_pipes);
+        }
+
+        // Respond
+        if (retval)
+        {
+            success = errno;
+            syslog_errno(success, "The call to pipe()/pipe2() failed.");
+        }
+    }
+
+    // CLEAN UP
+    if (0 != success)
+    {
+        if (INVALID_FD != empty_pipes[PIPE_READ])
+        {
+            close(empty_pipes[PIPE_READ]);  // Best effort.  Ignore errors.
+            empty_pipes[PIPE_READ] = INVALID_FD;
+        }
+        if (INVALID_FD != empty_pipes[PIPE_WRITE])
+        {
+            close(empty_pipes[PIPE_WRITE]);  // Best effort.  Ignore errors.
+            empty_pipes[PIPE_WRITE] = INVALID_FD;
+        }
+    }
+
+    // DONE
+    return success;
 }
 
 
@@ -408,6 +518,87 @@ void print_usage(void)
     fprintf(stderr, "\toptions:\n");
     fprintf(stderr, "\t\t-h, --help\t\tprint usage\n");
     fprintf(stderr, "\n");
+}
+
+
+char *read_a_pipe(int read_fd, int *msg_len, int *errnum)
+{
+    // LOCAL VARIABLES
+    char local_buff[PIPE_BUFF_SIZE + 1] = { 0 };  // Temporary storage
+    char *tmp_ptr = local_buff;                   // Iterating variable
+    char *retval = NULL;                          // Function return value
+    int read_count = 0;                           // Count the bytes read
+    ssize_t read_retval = 0;                      // Return value from read()
+    int errnum = 0;                               // Store errno here
+    size_t num_bytes = 1;                         // Number of bytes to read at once
+    bool success = false;                         // Flow control
+
+    // INPUT VALIDATION
+    if (-1 < read_fd && msg_len && errnum)
+    {
+        *msg_len = 0;
+        *errnum = 0;
+        success = true;
+    }
+
+    // READ IT
+    while (true == success && read_count < PIPE_BUFF_SIZE)
+    {
+        read_retval = read(read_fd, tmp_ptr, num_bytes);
+
+        if (-1 == read_retval)
+        {
+            *errnum = errno;
+            success = false;
+        }
+        else if (0 == read_retval)
+        {
+            break;  // End of file
+        }
+        else
+        {
+            read_count += num_bytes;  // Advance the count
+            tmp_ptr += num_bytes;  // Advance the iterator
+        }
+    }
+
+    // COPY DATA
+    if (true == success)
+    {
+        retval = calloc(read_count + 1, sizeof(char));
+
+        if (!retval)
+        {
+            *errnum = errno;
+            success = false;
+        }
+        else if (retval != memcpy(retval, local_buff, read_count))
+        {
+            *errnum = errno;
+            success = false;
+        }
+        else
+        {
+            *msg_len = read_count;
+        }
+    }
+
+    // CLEANUP
+    if (false == success)
+    {
+        if (retval)
+        {
+            free(retval);
+            retval = NULL;
+        }
+        if (msg_len)
+        {
+            *msg_len = 0;
+        }
+    }
+
+    // DONE
+    return retval;
 }
 
 

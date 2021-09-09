@@ -9,6 +9,18 @@
 #include <sys/types.h>  // off_t
 #include <syslog.h>     // syslog(), LOG_* macros
 
+typedef struct _Message
+{
+    char *buffer;  // Message Contents
+    size_t size;   // Message Size
+} Message;
+
+typedef struct _INotifyMessage
+{
+    Message message;    // Returned message contents from getWatcherData
+    // void *privateData;  // Private internal data
+} INotifyMessage;
+
 // Settings for INotify folder watcher thread
 typedef struct _INotifySettings
 {
@@ -19,8 +31,15 @@ typedef struct _INotifySettings
 // Holds the configuration data
 typedef struct _Configuration
 {
-    INotifySettings inotify;  // INotify folder watcher settings
+    INotifySettings inotify_config;  // INotify folder watcher settings
+    INotifyMessage inotify_message;  // INotify message
 } Configuration;
+
+// MACROs to help properly access int array indices
+#define PIPE_READ 0
+#define PIPE_WRITE 1
+#define INVALID_FD -1
+extern int pipe_fds[2];  // Pipe used to send data from the test harness to the daemon as if it was inotify
 
 
 /*
@@ -36,15 +55,43 @@ int do_it(char *filename);
 
 
 /*
+ * Loosely based on SURE's execute() in that it executes the main process loop
+ */
+void execute_order(Configuration *config);
+
+
+/*
  *  Return the filename argument
  */
 char *get_filename(int argc, char *argv[]);
 
 
 /*
+ * Loosely based on SURE's getINotifyData(), represents the test harnesses replacement
+ *      as a injection point for the test case data.
+ * Returns 0 on success, -1 on error, and errnum on failure
+ */
+int getINotifyData(Configuration *config);
+
+
+/*
  *  Append a newline-terminated entry to "log_filename"
  */
 void log_it(char *log_entry, char *log_filename);
+
+
+/*
+ *  Make plumbing easy
+ *  Arguments
+ *      empty_pipes - Integer array of dimension 2 to store the resulting file descriptors
+ *      flags - Flags to pass to pipe2() if appropriate
+ *  Returns 0 on success, -1 on bad input, errno on failure;
+ *  Notes
+ *      Based on MACROS and the value of flags, make_pipes() will call pipe2() instead
+ *          of pipe() in the right circumstances
+ *      This function will overwrite empty_pipes values with INVALID_FD before calling pipe()/pipe2().
+ */
+int make_pipes(int empty_pipes[2], int flags);
 
 
 /*
@@ -57,6 +104,16 @@ char *parse_args(int argc, char *argv[]);
  *  Print usage instructions for this binary; Define the BINARY_NAME macro or we'll define it for you!
  */
 void print_usage(void);
+
+
+/*
+ *  Reads characters from read_fd one byte at a time into a heap-allocated buffer
+ *  Arguments
+ *      read_fd - File descriptor to read from
+ *      msg_len - Out parameter to store the number of bytes read into the return value
+ *      errnum - Out parameter to store errno in the event of an error
+ */
+char *read_a_pipe(int read_fd, int *msg_len, int *errnum);
 
 
 /*
