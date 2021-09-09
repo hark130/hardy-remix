@@ -27,6 +27,8 @@
 
 // sighandler_t old_sig_handlers[128] = { NULL };
 
+int pipe_fds[2] = {INVALID_FD, INVALID_FD};  // Intializing global externed variable
+
 /*
  *  Check to see if dirname exists: Returns 1 if exists, 0 if not, -1 on error
  */
@@ -40,15 +42,15 @@ int check_dir(char *path);
 
 
 /*
- *  Append a log message to LOG_FILENAME
- */
-void log_external(char *log_entry);
-
-
-/*
  *  Uses radasma to fuzz original, read the output, store it in heap-allocated memory
  */
 char *get_fuzzed_contents(char *original, size_t *buff_size);
+
+
+/*
+ *  Append a log message to LOG_FILENAME
+ */
+void log_external(char *log_entry);
 
 
 /*
@@ -94,6 +96,16 @@ char *reallocate(char *old_buff, size_t curr_size, size_t add_space);
 off_t size_test_file(char *filename);
 
 
+/*
+ *  Test harness.
+ *  1. Read and prepend test case filename
+ *  2. Setup environment (e.g., watch dir, process dir)
+ *  3. Prepare to "hook" inotify
+ *  4. Start the "daemon"
+ *  5. Attempt to create the test case file (with fuzzed contents)
+ *  6. Test results(?)
+ *  7. Delete the test case file
+ */
 int main(int argc, char *argv[])
 {
     // LOCAL VARIABLES
@@ -106,7 +118,7 @@ int main(int argc, char *argv[])
     int file_exists = 0;           // Makeshift boolean to track file creation
     int errnum = 0;                // Store errno values
     Configuration config = { 0 };  // Pass to be_sure()
-    mode_t old_umask = 0;         // Store umask() value here and restore it
+    mode_t old_umask = 0;          // Store umask() value here and restore it
 
     // DO IT
     // 1. Read file containing test input
@@ -115,43 +127,57 @@ int main(int argc, char *argv[])
     if (1 == check_dir("/ramdisk"))
     {
         test_filename = prepend_test_input(filename, "/ramdisk/watch/");
-        config.inotify.watched = "/ramdisk/watch/";
-        config.inotify.process = "/ramdisk/watch/processed/";
+        config.inotify_config.watched = "/ramdisk/watch/";
+        config.inotify_config.process = "/ramdisk/watch/processed/";
     }
     else if (1 == check_dir("/tmp"))
     {
         test_filename = prepend_test_input(filename, "/tmp/watch/");
-        config.inotify.watched = "/tmp/watch/";
-        config.inotify.process = "/tmp/watch/processed/";
+        config.inotify_config.watched = "/tmp/watch/";
+        config.inotify_config.process = "/tmp/watch/processed/";
     }
     else
     {
         test_filename = prepend_test_input(filename, "./watch/");
-        config.inotify.watched = "./watch/";
-        config.inotify.process = "./watch/processed/";
+        config.inotify_config.watched = "./watch/";
+        config.inotify_config.process = "./watch/processed/";
     }
 
     // 2. Setup environment
     old_umask = umask(0);
-    if (0 == check_dir(config.inotify.watched))
+    if (0 == check_dir(config.inotify_config.watched))
     {
-        if (0 != mkdir(config.inotify.watched, S_IRWXU | S_IRWXG | S_IRWXO))
+        if (0 != mkdir(config.inotify_config.watched, S_IRWXU | S_IRWXG | S_IRWXO))
         {
             errnum = errno;
             syslog_errno(errnum, "Failed to create watch directory");
         }
     }
-    if (0 == check_dir(config.inotify.process))
+    if (0 == check_dir(config.inotify_config.process))
     {
-        if (0 != mkdir(config.inotify.process, S_IRWXU | S_IRWXG | S_IRWXO))
+        if (0 != mkdir(config.inotify_config.process, S_IRWXU | S_IRWXG | S_IRWXO))
         {
             errnum = errno;
             syslog_errno(errnum, "Failed to create process directory");
         }
     }
 
-    // 3. Attempt file creation
-    if (test_filename)
+    // 3. Prepare the "hook"
+    success = make_pipes(pipe_fds, O_NONBLOCK);
+
+    // 4. Start the "daemon"
+    if (0 == success)
+    {
+        log_external("Successfully created the pipes");  // DEBUGGING
+        be_sure(&config);
+    }
+    else
+    {
+        syslog_errno(errnum, "Failed to make the pipes");
+    }
+
+    // 5. Attempt file creation
+    if (0 == success && test_filename)
     {
         // Create
         // fprintf(stderr, "TEST FILENAME: %s\n", test_filename);  // DEBUGGING
@@ -205,9 +231,17 @@ int main(int argc, char *argv[])
             log_external("Failed to create file");  // DEBUGGING
         }
     }
-    // 4. Execute
-    be_sure(&config);
-    // 5. Delete file
+
+    // 6. Test results
+    if (0 == success)
+    {
+        // Was it processed?
+        // Any errors detected among the syslog entries
+        // Did the "daemon" crash
+        // Did this filename show up in the fuzzer's "output"?  (If so, maybe save it?)
+    }
+
+    // 7. Delete file
     if (1 == file_exists)
     {
         if (-1 == remove(test_filename))
@@ -219,8 +253,20 @@ int main(int argc, char *argv[])
     }
 
     // DONE
+    // TD: DDN... Should we add a safety check here to forcibly stop the "daemon" if it didn't already quit?
     // Restore umask
     old_umask = umask(old_umask);
+    // Close the pipes
+    if (INVALID_FD != pipe_fds[PIPE_READ])
+    {
+        close(pipe_fds[PIPE_READ]);
+        pipe_fds[PIPE_READ] = INVALID_FD;
+    }
+    if (INVALID_FD != pipe_fds[PIPE_WRITE])
+    {
+        close(pipe_fds[PIPE_WRITE]);
+        pipe_fds[PIPE_WRITE] = INVALID_FD;
+    }
     // test_filename
     if (test_filename)
     {
