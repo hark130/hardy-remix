@@ -9,6 +9,14 @@
 #include <sys/types.h>  // off_t
 #include <syslog.h>     // syslog(), LOG_* macros
 
+/*
+ * Stolen from https://opensource.apple.com/source/xnu/xnu-344/bsd/sys/syslog.h.auto.html
+ */
+typedef struct _Code {
+    char *name;
+    int  value;
+} CODE;
+
 typedef struct _Message
 {
     char *buffer;  // Message Contents

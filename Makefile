@@ -109,11 +109,8 @@ source07_honggfuzz:
 
 # This rule was created to replicate the behavior of a basic Linux daemon
 source08:
-	$(CC) $(CFLAGS) -DBINARY_NAME="\"source08_bad.bin\"" -o $(DIST)HARE_library_bad.o -c $(CODE)HARE_library_bad.c
-	$(CC) $(CFLAGS) -DBINARY_NAME="\"source08_best.bin\"" -o $(DIST)HARE_library_best.o -c $(CODE)HARE_library_best.c
-	$(CC) $(CFLAGS) -o $(DIST)source08_test_harness.o -c $(CODE)source08_test_harness.c
-	$(CC) $(CFLAGS) -o $(DIST)source08_test_harness_bad.bin $(DIST)source08_test_harness.o $(DIST)HARE_library_bad.o
-	$(CC) $(CFLAGS) -o $(DIST)source08_test_harness_best.bin $(DIST)source08_test_harness.o $(DIST)HARE_library_best.o
+	$(CC) $(CFLAGS) -DBINARY_NAME="\"source08_bad.bin\"" -o $(DIST)source08_test_harness_bad.bin $(CODE)HARE_library_bad.c $(CODE)HARE_library.c $(CODE)source08_test_harness.c
+	$(CC) $(CFLAGS) -DBINARY_NAME="\"source08_best.bin\"" -o $(DIST)source08_test_harness_best.bin $(CODE)HARE_library_best.c $(CODE)HARE_library.c $(CODE)source08_test_harness.c
 
 waiting:
 	$(CC) $(CFLAGS) -o $(DIST)waiting.o -c $(CODE)waiting.c
