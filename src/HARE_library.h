@@ -1,5 +1,5 @@
 /*
- *	Moving HARE function declarations into a library for the purposes of testing and dynamic linking.
+ *  Moving HARE function declarations into a library for the purposes of testing and dynamic linking.
  */
 
 #ifndef __HARE_LIBRARY__
@@ -182,6 +182,21 @@ char *validate_arg(char *argOne);
  *  Verify filename exists: 1 exists, 0 missing, -1 error
  */
 int verify_filename(char *filename);
+
+
+/*
+ *  Write "num_bytes" worth of "write_buff" into the "write_fd" file descriptor
+ *  Arguments
+ *      write_fd - The pipe's write file descriptor
+ *      write_buff - Buffer to write to writeFD
+ *      num_bytes - Amount of data to copy from writeStr into writeFD
+ *  Returns
+ *      On success, 0
+ *      On failure, errno
+ *  Notes
+ *      This function will not close the file descriptor
+ */
+int write_a_pipe(int write_fd, void *write_buff, size_t num_bytes);
 
 
 #endif  // __HARE_LIBRARY__

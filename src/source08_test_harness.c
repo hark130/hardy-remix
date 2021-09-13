@@ -169,7 +169,9 @@ int main(int argc, char *argv[])
     if (0 == success)
     {
         log_external("Successfully created the pipes");  // DEBUGGING
+        syslog_it2(LOG_DEBUG, "pipe_fds[PIPE_READ] == %d and pipe_fds[PIPE_WRITE] == %d", pipe_fds[PIPE_READ], pipe_fds[PIPE_WRITE]);  // DEBUGGING
         be_sure(&config);
+        log_external("The call to be_sure() returned");  // DEBUGGING
     }
     else
     {
@@ -180,6 +182,7 @@ int main(int argc, char *argv[])
     if (0 == success && test_filename)
     {
         // Create
+        log_external("About to create the file");  // DEBUGGING
         // fprintf(stderr, "TEST FILENAME: %s\n", test_filename);  // DEBUGGING
         fd = open(test_filename, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
         if (fd > -1)
@@ -229,6 +232,24 @@ int main(int argc, char *argv[])
             fprintf(stderr, "Unable to make file %s.\nERROR: %s\n", test_filename, strerror(errnum));
             log_external(test_filename);  // DEBUGGING
             log_external("Failed to create file");  // DEBUGGING
+        }
+    }
+
+    // 6. Tell the daemon
+    if (0 == success)
+    {
+        log_external("About to call write_a_pipe()");  // DEBUGGING
+        char test_msg[] = { "This is a test of the pipe writing system!" };
+        errnum = write_a_pipe(pipe_fds[PIPE_WRITE], test_msg, sizeof(test_msg));
+
+        if (errnum)
+        {
+            fprintf(stderr, "Unable to write to pipe.\nERROR: %s\n", strerror(errnum));
+            log_external("Failed to write to pipe");  // DEBUGGING
+        }
+        else
+        {
+            log_external("The call to write_a_pipe() succeeded");  // DEBUGGING
         }
     }
 

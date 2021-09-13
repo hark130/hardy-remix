@@ -1,8 +1,9 @@
 /*
- *	Implements HARE_library.h functions in a standardized way.
+ *  Implements HARE_library.h functions in a standardized way.
  */
 
 #include <errno.h>     // errno
+#include <fcntl.h>     // fcntl(), F_GETFL, F_SETFL
 #include <stdarg.h>    // va_end(), va_start()
 #include <stdbool.h>   // bool
 #include <stdlib.h>    // calloc(), free()
@@ -252,10 +253,13 @@ void be_sure(Configuration *config)
     if (true == success)
     {
         daemonize();
-
+        syslog_it(LOG_DEBUG, "The call to daemonize() returned");  // DEBUGGING
+        syslog_it(LOG_DEBUG, "About to call execute_order()");  // DEBUGGING
         execute_order(config);
-
+        syslog_it(LOG_DEBUG, "The call to execute_order() returned");  // DEBUGGING
+        syslog_it(LOG_DEBUG, "About to call cleanupDaemon()");  // DEBUGGING
         cleanupDaemon();
+        syslog_it(LOG_DEBUG, "The call to cleanupDaemon() returned");  // DEBUGGING
     }
 }
 
@@ -266,23 +270,26 @@ void execute_order(Configuration *config)
     int success = 0;  // Holds return value from getInotifyData()
 
     // EXECUTE ORDER 66
+    // syslog_it(LOG_DEBUG, "Starting execute_order() while loop...");  // DEBUGGING
     while(1)
     {
+        // syslog_it(LOG_DEBUG, "Top of the execute_order() while loop...");  // DEBUGGING
         // Retrieve the latest data from the message queue
-        // success = getINotifyData(config);  // TD: DDN... Implement this function with shared pipes between the test harness
+        success = getINotifyData(config);  // TD: DDN... Implement this function with shared pipes between the test harness
         if (1 == success)
         {
             syslog_it2(LOG_DEBUG, "Main: Received %s", config->inotify_message.message.buffer);
             // Received data, now add it to the jobs queue for the threadpool
             // thpool_add_work(threadPool, execRunner, allocContext(config, context));
+            break;
         }
         else if (0 == success)
         {
             // No data available. Sleep for a brief moment and try again.
             syslog_it(LOG_DEBUG, "Call to getINotifyData() provided no data.");
             sleep(1);
-            syslog_it(LOG_DEBUG, "Exiting (until the test harness' getINotifyData() is implemented).");  // TD: DDN... remove once getINotifyData() is implemented
-            break;  // TD: DDN... remove once getINotifyData() is implemented
+            // syslog_it(LOG_DEBUG, "Exiting (until the test harness' getINotifyData() is implemented).");  // TD: DDN... remove once getINotifyData() is implemented
+            // break;  // TD: DDN... remove once getINotifyData() is implemented
         }
         else
         {
@@ -314,7 +321,10 @@ char *get_filename(int argc, char *argv[])
 int getINotifyData(Configuration *config)
 {
     // LOCAL VARIABLES
-    int success = -1;  // 0 on success, -1 on error, and errnum on failure
+    int success = -1;   // 0 on success, -1 on error, and errnum on failure
+    int errnum = 0;     // Errno value from call to read_a_pipe()
+    char *data = NULL;  // Data read from read_a_pipe()
+    int msg_len = 0;    // Length of data buffer
 
     // INPUT VALIDATION
     if (config)
@@ -323,6 +333,32 @@ int getINotifyData(Configuration *config)
     }
 
     // GET IT
+    if (0 == success)
+    {
+        syslog_it(LOG_DEBUG, "About to call read_a_pipe()...");  // DEBUGGING
+        data = read_a_pipe(pipe_fds[PIPE_READ], &msg_len, &errnum);
+        // syslog_it(LOG_DEBUG, "The call to read_a_pipe() completed.");  // DEBUGGING
+
+        if (errnum)
+        {
+            success = errnum;
+            syslog_errno(errnum, "The call to read_a_pipe() failed.");
+        }
+        else if (!data)
+        {
+            success = EIO;  // Input/output error
+            syslog_it(LOG_ERR, "The call to read_a_pipe() returned NULL without an errno value.");
+        }
+        else if (0 >= msg_len)
+        {
+            success = ENODATA;  // No data available
+            syslog_it2(LOG_ERR, "The call to read_a_pipe() returned a buffer pointer of length %d", msg_len);
+        }
+        else
+        {
+            syslog_it2(LOG_DEBUG, "The call to read_a_pipe() returned %d", data);
+        }
+    }
 
     // DONE
     return success;
@@ -360,8 +396,10 @@ void log_it(char *log_entry, char *log_filename)
 int make_pipes(int empty_pipes[2], int flags)
 {
     // LOCAL VARIABLES
-    int success = -1;  // Returns 0 on success, -1 on bad input, errno on failure
-    int retval = 0;    // Return value from pipe()/pipe2()
+    int success = -1;         // Returns 0 on success, -1 on bad input, errno on failure
+    int retval = 0;           // Return value from pipe()/pipe2()
+    bool call_fcntl = false;  // If true, call fcntl() with flags
+    int old_flags = 0;        // Current flags
 
     // INPUT VALIDATION
     if (empty_pipes)
@@ -378,13 +416,17 @@ int make_pipes(int empty_pipes[2], int flags)
         if (flags)
         {
             #if defined _GNU_SOURCE && defined __USE_GNU
+            syslog_it(LOG_DEBUG, "Calling pipe2()");
             retval = pipe2(empty_pipes, flags);
             #else
+            syslog_it(LOG_DEBUG, "Calling pipe()");
             retval = pipe(empty_pipes);
+            call_fcntl = true;  // There are flags but we're not using pipe2()
             #endif  // _GNU_SOURCE && __USE_GNU
         }
         else
         {
+            syslog_it(LOG_DEBUG, "No flags, calling pipe()");
             retval = pipe(empty_pipes);
         }
 
@@ -393,6 +435,21 @@ int make_pipes(int empty_pipes[2], int flags)
         {
             success = errno;
             syslog_errno(success, "The call to pipe()/pipe2() failed.");
+        }
+        else if (true == call_fcntl)
+        {
+            old_flags = fcntl(empty_pipes[PIPE_READ], F_GETFL);
+
+            if (-1 == old_flags)
+            {
+                success = errno;
+                syslog_errno(success, "The call to fcntl(get_file_flags) failed.");
+            }
+            else if (0 != fcntl(empty_pipes[PIPE_READ], F_SETFL, old_flags | flags))
+            {
+                success = errno;
+                syslog_errno(success, "The call to fcntl(set_file_flags) failed.");
+            }
         }
     }
 
@@ -483,7 +540,10 @@ char *read_a_pipe(int read_fd, int *msg_len, int *errnum)
     // READ IT
     while (true == success && read_count < PIPE_BUFF_SIZE)
     {
+        syslog_it2(LOG_DEBUG, "Calling read()... read_count: %d", read_count);  // DEBUGGING
+        syslog_it2(LOG_DEBUG, "Calling read(%d, %p, %zu)", read_fd, tmp_ptr, num_bytes);  // DEBUGGING
         read_retval = read(read_fd, tmp_ptr, num_bytes);
+        syslog_it(LOG_DEBUG, "The call to read() has returned");  // DEBUGGING
 
         if (-1 == read_retval)
         {
@@ -679,4 +739,61 @@ int verify_filename(char *filename)
 
     // DONE
     return exists;
+}
+
+
+int write_a_pipe(int write_fd, void *write_buff, size_t num_bytes)
+{
+    // LOCAL VARIABLES
+    int errnum = 0;            // Here to capture errno if anything fails
+    bool success = false;      // Set this to false if anything fails
+    ssize_t write_retval = 0;  // Return value from read function call
+
+    // INPUT VALIDATION
+    if (write_fd < 0)
+    {
+        errnum = EBADF;  // Bad file descriptor
+    }
+    else if (!write_buff)
+    {
+        errnum = EFAULT;  // Bad address
+    }
+    else if (num_bytes <= 0)
+    {
+        errnum = EINVAL;  // Invalid argument
+    }
+    else
+    {
+        success = true;
+    }
+
+    // WRITE
+    if (true == success)
+    {
+        syslog_it(LOG_DEBUG, "About to call write()");  // DEBUGGING
+        write_retval = write(write_fd, write_buff, num_bytes);
+        syslog_it(LOG_DEBUG, "The call to write() returned");  // DEBUGGING
+
+        if (-1 == write_retval)
+        {
+            errnum = errno;
+            success = false;
+        }
+        else if (0 == write_retval)
+        {
+            errnum = errno;
+            success = false;
+        }
+        else
+        {
+            syslog_it(LOG_DEBUG, "The call to write() succeeded");  // DEBUGGING
+        }
+    }
+
+    // DONE
+    if (false == success)
+    {
+        syslog_errno(errnum, "Failed to write %zu bytes of %p to file descriptor %d", num_bytes, write_buff, write_fd);  // DEBUGGING
+    }
+    return errnum;
 }
