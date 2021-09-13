@@ -124,6 +124,7 @@ all_source:
 	$(MAKE) source07
 	$(MAKE) source07_afl
 	$(MAKE) source07_honggfuzz
+	$(MAKE) source08
 	$(MAKE) waiting
 
 all:
