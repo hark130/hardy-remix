@@ -5,7 +5,6 @@
 #include <errno.h>     // errno
 #include <fcntl.h>     // fcntl(), F_GETFL, F_SETFL
 #include <stdarg.h>    // va_end(), va_start()
-#include <stdbool.h>   // bool
 #include <stdlib.h>    // calloc(), free()
 #include <string.h>    // strlen(), strstr()
 #include <sys/types.h>
@@ -823,17 +822,17 @@ int verify_directory(char *directory)
     int exists = 0;        // 1 exists, 0 missing, -1 error
 
     // INPUT VALIDATION
-    if (!filename || !(*filename))
+    if (!directory || !(*directory))
     {
         exists = -1;
     }
     else
     {
-        exists = verify_pathname(filename);
+        exists = verify_pathname(directory);
 
-        if (1 == exists && 0 == stat(filename, &response))
+        if (1 == exists && 0 == stat(directory, &response))
         {
-            if (S_IFDIR != response.st_mode & S_IFMT)
+            if (S_IFDIR != (response.st_mode & S_IFMT))
             {
                 exists = 0;
             }
@@ -862,7 +861,7 @@ int verify_filename(char *filename)
 
         if (1 == exists && 0 == stat(filename, &response))
         {
-            if (S_IFREG != response.st_mode & S_IFMT)
+            if (S_IFREG != (response.st_mode & S_IFMT))
             {
                 exists = 0;
             }
@@ -881,11 +880,11 @@ int verify_pathname(char *pathname)
     int exists = 0;        // 1 exists, 0 missing, -1 error
 
     // INPUT VALIDATION
-    if (!pathname || !(*filename))
+    if (!pathname || !(*pathname))
     {
         exists = -1;
     }
-    else if (0 == stat(filename, &response))
+    else if (0 == stat(pathname, &response))
     {
         exists = 1;
     }

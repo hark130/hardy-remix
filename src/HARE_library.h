@@ -5,6 +5,7 @@
 #ifndef __HARE_LIBRARY__
 #define __HARE_LIBRARY__
 
+#include <stdbool.h>   // bool
 #include <stdio.h>      // NULL
 #include <sys/types.h>  // off_t
 #include <syslog.h>     // syslog(), LOG_* macros
