@@ -74,6 +74,12 @@ void execute_order(Configuration *config);
 
 
 /*
+ *  Return a YYYYMMDD_HHMMSS_ string in a heap-allocated buffer
+ */
+char *get_datetime_stamp(void);
+
+
+/*
  *  Return the filename argument
  */
 char *get_filename(int argc, char *argv[]);
@@ -107,6 +113,17 @@ void log_it(char *log_entry, char *log_filename);
  *      This function will overwrite empty_pipes values with INVALID_FD before calling pipe()/pipe2().
  */
 int make_pipes(int empty_pipes[2], int flags);
+
+
+/*
+ *  Move filename to dest
+ *  Arguments
+ *      filename - Filename to move
+ *      dest - Directory to move filename to
+ *      prepend - If True, prepends the filename with a datetime stamp
+ *  Returns 0 on success, -1 on bad input, errno on failure
+ */
+int move_a_file(char *filename, char *dest, bool prepend);
 
 
 /*
@@ -186,9 +203,21 @@ char *validate_arg(char *argOne);
 
 
 /*
- *  Verify filename exists: 1 exists, 0 missing, -1 error
+ *  Verify directory exists: 1 exists, 0 missing, -1 error
+ */
+int verify_directory(char *directory);
+
+
+/*
+ *  Verify filename exists as a regular file: 1 exists, 0 missing, -1 error
  */
 int verify_filename(char *filename);
+
+
+/*
+ *  Verify pathname exists: 1 exists, 0 missing, -1 error
+ */
+int verify_pathname(char *pathname);
 
 
 /*

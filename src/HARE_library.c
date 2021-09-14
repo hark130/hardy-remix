@@ -354,6 +354,19 @@ char *get_filename(int argc, char *argv[])
 }
 
 
+char *get_datetime_stamp(void)
+{
+    // LOCAL VARIABLES
+    char *stamp = NULL;
+
+    // STAMP IT
+    // TD: DDN... Properly implement this function
+
+    // DONE
+    return stamp;
+}
+
+
 int getINotifyData(Configuration *config)
 {
     // LOCAL VARIABLES
@@ -509,6 +522,39 @@ int make_pipes(int empty_pipes[2], int flags)
 
     // DONE
     return success;
+}
+
+
+int move_a_file(char *filename, char *dest, bool prepend)
+{
+    // LOCAL VARIABLES
+    int errnum = -1;  // 0 on success, -1 on bad input, errno on failure
+
+    // INPUT VALIDATION
+    // Arguments
+    if (filename && *filename && dest && *dest)
+    {
+        errnum = 0;
+
+        // Environment
+        if (1 != verify_filename(filename))
+        {
+            errnum = -1;
+        }
+        else if (1 != verify_directory(dest))
+        {
+            errnum = -1;
+        }
+    }
+
+    // DO IT
+    if (0 == errnum)
+    {
+        errnum = -1;  // TD: DDN... Implement this function properly
+    }
+
+    // DONE
+    return errnum;
 }
 
 
@@ -770,11 +816,11 @@ char *validate_arg(char *argOne)
 }
 
 
-int verify_filename(char *filename)
+int verify_directory(char *directory)
 {
     // LOCAL VARIABLES
     struct stat response;  // Used by stat()
-    int exists = 0;       // Return value
+    int exists = 0;        // 1 exists, 0 missing, -1 error
 
     // INPUT VALIDATION
     if (!filename || !(*filename))
@@ -783,10 +829,65 @@ int verify_filename(char *filename)
     }
     else
     {
-        if (0 == stat(filename, &response))
+        exists = verify_pathname(filename);
+
+        if (1 == exists && 0 == stat(filename, &response))
         {
-            exists = 1;
-        }        
+            if (S_IFDIR != response.st_mode & S_IFMT)
+            {
+                exists = 0;
+            }
+        }
+    }
+
+    // DONE
+    return exists;
+}
+
+
+int verify_filename(char *filename)
+{
+    // LOCAL VARIABLES
+    struct stat response;  // Used by stat()
+    int exists = 0;        // 1 exists, 0 missing, -1 error
+
+    // INPUT VALIDATION
+    if (!filename || !(*filename))
+    {
+        exists = -1;
+    }
+    else
+    {
+        exists = verify_pathname(filename);
+
+        if (1 == exists && 0 == stat(filename, &response))
+        {
+            if (S_IFREG != response.st_mode & S_IFMT)
+            {
+                exists = 0;
+            }
+        }
+    }
+
+    // DONE
+    return exists;
+}
+
+
+int verify_pathname(char *pathname)
+{
+    // LOCAL VARIABLES
+    struct stat response;  // Used by stat()
+    int exists = 0;        // 1 exists, 0 missing, -1 error
+
+    // INPUT VALIDATION
+    if (!pathname || !(*filename))
+    {
+        exists = -1;
+    }
+    else if (0 == stat(filename, &response))
+    {
+        exists = 1;
     }
 
     // DONE
