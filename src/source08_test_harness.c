@@ -10,10 +10,6 @@
 #include "HARE_library.h"  // be_sure()
 
 
-// #ifndef ENOERR
-// #define ENOERR 0
-// #endif  // ENOERR
-
 // #ifndef __USE_GNU
 // #define __USE_GNU  // Get access to sighandler_t
 // #endif  // __USE_GNU
@@ -68,8 +64,10 @@ void log_external(char *log_entry);
 /*
  *  Prepend the contents of filename with the string found in prepend
  *  If prepend if NULL or empty, returns unaltered contents of filename
+ *  Contents of total_size is zeroized.  Upon success, total_size contains
+ *      the full length of the data contained in the return value.
  */
-char *prepend_test_input(char *filename, char *prepend);
+char *prepend_test_input(char *filename, char *prepend, size_t *total_size);
 
 
 /*
@@ -112,6 +110,7 @@ int main(int argc, char *argv[])
     int success = 0;               // Return value
     char *filename = argv[1];      // CLI argument: filename
     char *test_filename = NULL;    // Contents of filename: use as test input
+    size_t test_filename_len = 0;  // Total readable length of test_filename
     char *test_content = NULL;     // Fuzzed test file contents
     size_t content_size = 0;       // Readable size of test_content
     int fd = 0;                    // Filename's file descriptor
@@ -119,6 +118,7 @@ int main(int argc, char *argv[])
     int errnum = 0;                // Store errno values
     Configuration config = { 0 };  // Pass to be_sure()
     mode_t old_umask = 0;          // Store umask() value here and restore it
+    pid_t daemon = 0;              // PID if parent, 0 if child, -1 on failure
 
     // DO IT
     // 1. Read file containing test input
@@ -126,19 +126,19 @@ int main(int argc, char *argv[])
 
     if (1 == check_dir("/ramdisk"))
     {
-        test_filename = prepend_test_input(filename, "/ramdisk/watch/");
+        test_filename = prepend_test_input(filename, "/ramdisk/watch/", &test_filename_len);
         config.inotify_config.watched = "/ramdisk/watch/";
         config.inotify_config.process = "/ramdisk/watch/processed/";
     }
     else if (1 == check_dir("/tmp"))
     {
-        test_filename = prepend_test_input(filename, "/tmp/watch/");
+        test_filename = prepend_test_input(filename, "/tmp/watch/", &test_filename_len);
         config.inotify_config.watched = "/tmp/watch/";
         config.inotify_config.process = "/tmp/watch/processed/";
     }
     else
     {
-        test_filename = prepend_test_input(filename, "./watch/");
+        test_filename = prepend_test_input(filename, "./watch/", &test_filename_len);
         config.inotify_config.watched = "./watch/";
         config.inotify_config.process = "./watch/processed/";
     }
@@ -164,14 +164,32 @@ int main(int argc, char *argv[])
 
     // 3. Prepare the "hook"
     success = make_pipes(pipe_fds, O_NONBLOCK);
+    // DEBUGGING
+    // if (0 == success)
+    // {
+    //     log_external("About to fill the pipe with something to read");  // DEBUGGING
+    //     char debug_msg[] = { "The call to read_a_pipe() returned errno 11 on an empty pipe.  Do I have to put something in there for it to successfully ready anything?!" };
+    //     errnum = write_a_pipe(pipe_fds[PIPE_WRITE], debug_msg, sizeof(debug_msg));
+
+    //     if (errnum)
+    //     {
+    //         syslog_it2(LOG_DEBUG, "Unable to write debug message to pipe.\nERROR: %s\n", strerror(errnum));
+    //         log_external("Failed to write to pipe");  // DEBUGGING
+    //     }
+    //     else
+    //     {
+    //         log_external("The call to write_a_pipe(DEBUG MESSAGE) succeeded");  // DEBUGGING
+    //     }
+    // }
 
     // 4. Start the "daemon"
     if (0 == success)
     {
         log_external("Successfully created the pipes");  // DEBUGGING
         syslog_it2(LOG_DEBUG, "pipe_fds[PIPE_READ] == %d and pipe_fds[PIPE_WRITE] == %d", pipe_fds[PIPE_READ], pipe_fds[PIPE_WRITE]);  // DEBUGGING
-        be_sure(&config);
-        log_external("The call to be_sure() returned");  // DEBUGGING
+        daemon = be_sure(&config);
+        // log_external("The call to be_sure() returned");  // DEBUGGING
+        syslog_it2(LOG_DEBUG, "The call to be_sure() returned %d", daemon);  // DEBUGGING
     }
     else
     {
@@ -179,10 +197,11 @@ int main(int argc, char *argv[])
     }
 
     // 5. Attempt file creation
-    if (0 == success && test_filename)
+    syslog_it2(LOG_DEBUG, "Current status is... success: %d, test_filename: %s, daemon: %d", success, test_filename, daemon);  // DEBUGGING
+    if (0 == success && test_filename && 0 < daemon)
     {
         // Create
-        log_external("About to create the file");  // DEBUGGING
+        log_external("(PARENT) About to create the file");  // DEBUGGING
         // fprintf(stderr, "TEST FILENAME: %s\n", test_filename);  // DEBUGGING
         fd = open(test_filename, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
         if (fd > -1)
@@ -194,35 +213,38 @@ int main(int argc, char *argv[])
             // test_content = get_fuzzed_contents("This is my file.\n", &content_size);
             test_content = get_fuzzed_contents("file", &content_size);
 
-
             if (test_content && content_size > 0)
             {
                 // Write
                 if (-1 == write(fd, test_content, content_size))
                 {
                     errnum = errno;
-                    fprintf(stderr, "Unable to write to %s.\nERROR: %s\n", test_filename, strerror(errnum));
-                    log_external("Unable to write file");  // DEBUGGING
+                    syslog_errno(errnum, "Unable to write to %s", test_filename);
+                    log_external("(PARENT) Unable to write file");  // DEBUGGING
+                }
+                else
+                {
+                    syslog_it2(LOG_DEBUG, "(PARENT) Successfully created and wrote to file %s", test_filename);  // DEBUGGING
                 }
             }
             else
             {
-                fprintf(stderr, "Failed to fuzz content.\n");
-                log_external("Failed to fuzz content");  // DEBUGGING
+                log_external("Failed to fuzz content.");
+                log_external("(PARENT) Failed to fuzz content");  // DEBUGGING
             }
 
             // Close
             if (fsync(fd))
             {
                 errnum = errno;
-                fprintf(stderr, "Unable to synchronize %s.\nERROR: %s\n", test_filename, strerror(errnum));
-                log_external("Unable to sychronize");  // DEBUGGING
+                syslog_errno(errnum, "Unable to synchronize %s", test_filename);
+                log_external("(PARENT) Unable to sychronize");  // DEBUGGING
             }
             if (close(fd))
             {
                 errnum = errno;
-                fprintf(stderr, "Unable to close %s.\nERROR: %s\n", test_filename, strerror(errnum));
-                log_external("Unable to close");  // DEBUGGING
+                syslog_errno(errnum, "Unable to close %s", test_filename);
+                log_external("(PARENT) Unable to close");  // DEBUGGING
             }
             fd = -1;
         }
@@ -236,11 +258,13 @@ int main(int argc, char *argv[])
     }
 
     // 6. Tell the daemon
-    if (0 == success)
+    if (0 == success && 0 < daemon)
     {
         log_external("About to call write_a_pipe()");  // DEBUGGING
-        char test_msg[] = { "This is a test of the pipe writing system!" };
-        errnum = write_a_pipe(pipe_fds[PIPE_WRITE], test_msg, sizeof(test_msg));
+        // char test_msg[] = { "This is a test of the pipe writing system!" };
+        // errnum = write_a_pipe(pipe_fds[PIPE_WRITE], test_msg, sizeof(test_msg));
+
+        errnum = write_a_pipe(pipe_fds[PIPE_WRITE], test_filename, test_filename_len);
 
         if (errnum)
         {
@@ -254,7 +278,7 @@ int main(int argc, char *argv[])
     }
 
     // 6. Test results
-    if (0 == success)
+    if (0 == success && 0 < daemon)
     {
         // Was it processed?
         // Any errors detected among the syslog entries
@@ -263,7 +287,7 @@ int main(int argc, char *argv[])
     }
 
     // 7. Delete file
-    if (1 == file_exists)
+    if (1 == file_exists && 0 < daemon)
     {
         if (-1 == remove(test_filename))
         {
@@ -275,30 +299,33 @@ int main(int argc, char *argv[])
 
     // DONE
     // TD: DDN... Should we add a safety check here to forcibly stop the "daemon" if it didn't already quit?
-    // Restore umask
-    old_umask = umask(old_umask);
-    // Close the pipes
-    if (INVALID_FD != pipe_fds[PIPE_READ])
+    if (0 < daemon)
     {
-        close(pipe_fds[PIPE_READ]);
-        pipe_fds[PIPE_READ] = INVALID_FD;
-    }
-    if (INVALID_FD != pipe_fds[PIPE_WRITE])
-    {
-        close(pipe_fds[PIPE_WRITE]);
-        pipe_fds[PIPE_WRITE] = INVALID_FD;
-    }
-    // test_filename
-    if (test_filename)
-    {
-        free(test_filename);
-        test_filename = NULL;
-    }
-    // test_content
-    if (test_content)
-    {
-        free(test_content);
-        test_content = NULL;
+        // Restore umask
+        old_umask = umask(old_umask);
+        // Close the pipes
+        if (INVALID_FD != pipe_fds[PIPE_READ])
+        {
+            close(pipe_fds[PIPE_READ]);
+            pipe_fds[PIPE_READ] = INVALID_FD;
+        }
+        if (INVALID_FD != pipe_fds[PIPE_WRITE])
+        {
+            close(pipe_fds[PIPE_WRITE]);
+            pipe_fds[PIPE_WRITE] = INVALID_FD;
+        }
+        // test_filename
+        if (test_filename)
+        {
+            free(test_filename);
+            test_filename = NULL;
+        }
+        // test_content
+        if (test_content)
+        {
+            free(test_content);
+            test_content = NULL;
+        }
     }
     return success;
 }
@@ -539,7 +566,7 @@ void log_external(char *log_entry)
 // }
 
 
-char *prepend_test_input(char *filename, char *prepend)
+char *prepend_test_input(char *filename, char *prepend, size_t *total_size)
 {
     // LOCAL VARIABLES
     off_t buff_size = 0;           // Readable size of buffer allocated by read_test_file()
@@ -550,8 +577,9 @@ char *prepend_test_input(char *filename, char *prepend)
     char *new_test_offset = NULL;  // Starting address of the old_test_input inside the new_test_input
 
     // INPUT VALIDATION
-    if (filename && *filename && prepend)
+    if (filename && *filename && prepend && total_size)
     {
+        *total_size = 0;  // Initialize out parameter
         old_test_input = read_test_file(filename, &buff_size);
         // fprintf(stderr, "OLD TEST INPUT: %s\n", old_test_input);  // DEBUGGING
         if (old_test_input && *old_test_input && prepend && *prepend)
@@ -570,6 +598,10 @@ char *prepend_test_input(char *filename, char *prepend)
                 {
                     // fprintf(stderr, "ERROR: memcpy failed with %s\n", strerror(errno));  // DEBUGGING
                     error++;
+                }
+                else
+                {
+                    *total_size = prepend_len + buff_size;
                 }
             }
             else

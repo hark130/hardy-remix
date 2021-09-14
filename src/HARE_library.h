@@ -9,6 +9,10 @@
 #include <sys/types.h>  // off_t
 #include <syslog.h>     // syslog(), LOG_* macros
 
+#ifndef ENOERR
+#define ENOERR 0
+#endif  // ENOERR
+
 /*
  * Stolen from https://opensource.apple.com/source/xnu/xnu-344/bsd/sys/syslog.h.auto.html
  */
@@ -52,8 +56,9 @@ extern int pipe_fds[2];  // Pipe used to send data from the test harness to the 
 
 /*
  * Mirrors SURE's main() in that it acts as Linux-style daemon loader by fork()ing and exiting, thus releasing control
+ * Returns PID if parent, 0 if child, -1 on failure
  */
-void be_sure(Configuration *config);
+pid_t be_sure(Configuration *config);
 
 
 /*
@@ -78,6 +83,8 @@ char *get_filename(int argc, char *argv[]);
  * Loosely based on SURE's getINotifyData(), represents the test harnesses replacement
  *      as a injection point for the test case data.
  * Returns 0 on success, -1 on error, and errnum on failure
+ * Notes
+ *      Returns 0 even if there's no data to read
  */
 int getINotifyData(Configuration *config);
 

@@ -93,54 +93,63 @@ void cleanupDaemon()
 
 /*
  * SURE implementation of a standard Linux daemon loader
- * Copy/paste from SURE
+ * Copy/paste/refactor from SURE
+ * Returns PID if parent, 0 if child, -1 on failure
  */
-void daemonize()
+pid_t daemonize()
 {
     pid_t pid = 0;  // Process IDentifier
     pid_t sid = 0;  // Child process session ID
 
     // Fork off the parent process
     pid = fork();
+    // Error
     if (pid < 0)
     {
         syslog_errno(errno, "Failure value from fork()");
         syslog_it(LOG_EMERG, "Failed to fork");
         exit(EXIT_FAILURE);  // Error
     }
+    // Parent (test harness)
     else if (pid > 0)
     {
         syslog_it(LOG_INFO, "Fork successful");
-        syslog_it(LOG_INFO, "Daemon loader is exiting");
-        exit(EXIT_SUCCESS);  // Child process successfully forked
+        // syslog_it(LOG_INFO, "(PARENT) Test harness will continue");
+        // exit(EXIT_SUCCESS);  // Child process successfully forked
     }
-
-    // Child process continues here
-    syslog_it(LOG_NOTICE, "Starting daemon");
-
-    // Change the file mode creation mask
-    // NOTE: This system call always succeeds
-    umask(0);
-
-    // Create a new Session ID for the child process
-    sid = setsid();
-    if (sid < 0)
+    // Child process
+    else
     {
-        syslog_errno(errno, "Failure value from setsid()");
-        syslog_it(LOG_EMERG, "Failed to acquire Session ID");
-    }
-    // Change the current working directory
-    else if ((chdir("/")) < 0)
-    {
-        syslog_errno(errno, "Failure value from chdir()");
-        syslog_it(LOG_EMERG, "Failed to change directory");
-    }
-    // Close out the standard file descriptors. A gentleman's agreement
-    // was reached that this function can error and that the main
-    // function will soldier on since it is not a critical error.
-    redirectStdStreams();  // Redirect the standard streams to /dev/null
+        // Child process continues here
+        syslog_it(LOG_NOTICE, "(CHILD) Starting daemon");
 
-    // initSignalHandlers();
+        // Change the file mode creation mask
+        // NOTE: This system call always succeeds
+        umask(0);
+
+        // Create a new Session ID for the child process
+        sid = setsid();
+        if (sid < 0)
+        {
+            syslog_errno(errno, "(CHILD) Failure value from setsid()");
+            syslog_it(LOG_EMERG, "(CHILD) Failed to acquire Session ID");
+        }
+        // Change the current working directory
+        else if ((chdir("/")) < 0)
+        {
+            syslog_errno(errno, "(CHILD) Failure value from chdir()");
+            syslog_it(LOG_EMERG, "(CHILD) Failed to change directory");
+        }
+        // Close out the standard file descriptors. A gentleman's agreement
+        // was reached that this function can error and that the main
+        // function will soldier on since it is not a critical error.
+        redirectStdStreams();  // Redirect the standard streams to /dev/null
+
+        // initSignalHandlers();
+    }
+
+    // DONE
+    return pid;
 }
 
 
@@ -218,10 +227,11 @@ int redirectStdStreams()
 /*************************************************************************************************/
 
 
-void be_sure(Configuration *config)
+pid_t be_sure(Configuration *config)
 {
     // LOCAL VARIABLES
-    int success = true;  // Flow control
+    int success = true;   // Flow control
+    pid_t daemon = -1;    // Return value from daemonize()
 
     // INPUT VALIDATION
     // config
@@ -252,15 +262,29 @@ void be_sure(Configuration *config)
     // BE SURE
     if (true == success)
     {
-        daemonize();
-        syslog_it(LOG_DEBUG, "The call to daemonize() returned");  // DEBUGGING
-        syslog_it(LOG_DEBUG, "About to call execute_order()");  // DEBUGGING
-        execute_order(config);
-        syslog_it(LOG_DEBUG, "The call to execute_order() returned");  // DEBUGGING
-        syslog_it(LOG_DEBUG, "About to call cleanupDaemon()");  // DEBUGGING
-        cleanupDaemon();
-        syslog_it(LOG_DEBUG, "The call to cleanupDaemon() returned");  // DEBUGGING
+        daemon = daemonize();
+        if (0 == daemon)
+        {
+            syslog_it(LOG_DEBUG, "(CHILD) The call to daemonize() returned");  // DEBUGGING
+            syslog_it(LOG_DEBUG, "(CHILD) About to call execute_order()");  // DEBUGGING
+            execute_order(config);
+            syslog_it(LOG_DEBUG, "(CHILD) The call to execute_order() returned");  // DEBUGGING
+            syslog_it(LOG_DEBUG, "(CHILD) About to call cleanupDaemon()");  // DEBUGGING
+            cleanupDaemon();
+            syslog_it(LOG_DEBUG, "(CHILD) The call to cleanupDaemon() returned");  // DEBUGGING
+        }
+        else if (daemon < 0)
+        {
+            syslog_it(LOG_ERR, "Call to daemonize() failed");
+        }
+        else
+        {
+            syslog_it(LOG_INFO, "(PARENT) Test harness will continue on");
+        }
     }
+
+    // DONE
+    return daemon;
 }
 
 
@@ -276,25 +300,37 @@ void execute_order(Configuration *config)
         // syslog_it(LOG_DEBUG, "Top of the execute_order() while loop...");  // DEBUGGING
         // Retrieve the latest data from the message queue
         success = getINotifyData(config);  // TD: DDN... Implement this function with shared pipes between the test harness
-        if (1 == success)
+        // Returns 0 on success, -1 on error, and errnum on failure
+        syslog_it2(LOG_DEBUG, "Call to getINotifyData() returned %d", success);  // DEBUGGING
+        if (0 == success)
         {
-            syslog_it2(LOG_DEBUG, "Main: Received %s", config->inotify_message.message.buffer);
-            // Received data, now add it to the jobs queue for the threadpool
-            // thpool_add_work(threadPool, execRunner, allocContext(config, context));
-            break;
-        }
-        else if (0 == success)
-        {
-            // No data available. Sleep for a brief moment and try again.
-            syslog_it(LOG_DEBUG, "Call to getINotifyData() provided no data.");
-            sleep(1);
-            // syslog_it(LOG_DEBUG, "Exiting (until the test harness' getINotifyData() is implemented).");  // TD: DDN... remove once getINotifyData() is implemented
-            // break;  // TD: DDN... remove once getINotifyData() is implemented
+            if (config->inotify_message.message.buffer && config->inotify_message.message.size > 0)
+            {
+                syslog_it2(LOG_DEBUG, "Main: Received %s", config->inotify_message.message.buffer);
+                // Received data, now add it to the jobs queue for the threadpool
+                // thpool_add_work(threadPool, execRunner, allocContext(config, context));
+                break;
+            }
+            else
+            {
+                // No data available. Sleep for a brief moment and try again.
+                syslog_it(LOG_DEBUG, "Call to getINotifyData() provided no data.");
+                sleep(1);
+                // syslog_it(LOG_DEBUG, "Exiting (until the test harness' getINotifyData() is implemented).");  // TD: DDN... remove once getINotifyData() is implemented
+                // break;  // TD: DDN... remove once getINotifyData() is implemented
+            }
         }
         else
         {
+            if (0 < success)
+            {
+                syslog_errno(success, "Call to getINotifyData() failed");
+            }
+            else
+            {
+                syslog_it2(LOG_ERR, "Call to getINotifyData() failed with %d.  Exiting.", success);
+            }
             // Got error. Should we exit?
-            syslog_it(LOG_ERR, "Call to getINotifyData() failed.  Exiting.");
             break;  // Yes
         }
     }
@@ -346,8 +382,9 @@ int getINotifyData(Configuration *config)
         }
         else if (!data)
         {
-            success = EIO;  // Input/output error
-            syslog_it(LOG_ERR, "The call to read_a_pipe() returned NULL without an errno value.");
+            // success = EIO;  // Input/output error
+            success = ENOERR;  // Apparently, there was nothing to read
+            syslog_it(LOG_INFO, "The call to read_a_pipe() returned NULL without an errno value.");
         }
         else if (0 >= msg_len)
         {
@@ -356,7 +393,9 @@ int getINotifyData(Configuration *config)
         }
         else
         {
-            syslog_it2(LOG_DEBUG, "The call to read_a_pipe() returned %d", data);
+            syslog_it2(LOG_DEBUG, "The call to read_a_pipe() returned %s", data);  // DEBUGGING
+            config->inotify_message.message.buffer = data;
+            config->inotify_message.message.size = msg_len;
         }
     }
 
@@ -540,15 +579,28 @@ char *read_a_pipe(int read_fd, int *msg_len, int *errnum)
     // READ IT
     while (true == success && read_count < PIPE_BUFF_SIZE)
     {
-        syslog_it2(LOG_DEBUG, "Calling read()... read_count: %d", read_count);  // DEBUGGING
-        syslog_it2(LOG_DEBUG, "Calling read(%d, %p, %zu)", read_fd, tmp_ptr, num_bytes);  // DEBUGGING
+        // syslog_it2(LOG_DEBUG, "Calling read()... read_count: %d", read_count);  // DEBUGGING
+        // syslog_it2(LOG_DEBUG, "Calling read(%d, %p, %zu)", read_fd, tmp_ptr, num_bytes);  // DEBUGGING
         read_retval = read(read_fd, tmp_ptr, num_bytes);
-        syslog_it(LOG_DEBUG, "The call to read() has returned");  // DEBUGGING
+        // syslog_it(LOG_DEBUG, "The call to read() has returned");  // DEBUGGING
 
         if (-1 == read_retval)
         {
             *errnum = errno;
-            success = false;
+            if (EAGAIN == *errnum)
+            {
+                *errnum = 0;  // We're ignoring this particular error
+                if (0 == read_count)
+                {
+                    success = false;
+                }
+                break;  // Observed behavior indicates there's nothing to read right now.
+            }
+            else
+            {
+                success = false;
+                // syslog_it2(LOG_DEBUG, "So far we've read: %s", local_buff);  // DEBUGGING
+            }
         }
         else if (0 == read_retval)
         {
