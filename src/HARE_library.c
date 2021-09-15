@@ -353,13 +353,19 @@ char *get_filename(int argc, char *argv[])
 }
 
 
-char *get_datetime_stamp(void)
+char *get_datetime_stamp(int *errnum)
 {
     // LOCAL VARIABLES
     char *stamp = NULL;
 
-    // STAMP IT
-    // TD: DDN... Properly implement this function
+    // INPUT VALIDATION
+    if (errnum)
+    {
+        *errnum = ENOERR;
+
+        // STAMP IT
+        // TD: DDN... Properly implement this function
+    }
 
     // DONE
     return stamp;
@@ -527,7 +533,8 @@ int make_pipes(int empty_pipes[2], int flags)
 int move_a_file(char *filename, char *dest, bool prepend)
 {
     // LOCAL VARIABLES
-    int errnum = -1;  // 0 on success, -1 on bad input, errno on failure
+    int errnum = -1;              // 0 on success, -1 on bad input, errno on failure
+    char *datetime_stamp = NULL;  // Store the datetime stamp here
 
     // INPUT VALIDATION
     // Arguments
@@ -549,6 +556,20 @@ int move_a_file(char *filename, char *dest, bool prepend)
     // DO IT
     if (0 == errnum)
     {
+        // Get datetime stamp
+        if (true == prepend)
+        {
+            datetime_stamp = get_datetime_stamp(&errnum);
+
+            if (!datetime_stamp || ENOERR != errnum)
+            {
+                syslog_errno(errnum, "Call to get_datetime_stamp() failed");
+            }
+            else
+            {
+                // TD: DDN... Continue here
+            }
+        }
         errnum = -1;  // TD: DDN... Implement this function properly
     }
 

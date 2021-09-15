@@ -77,7 +77,7 @@ void execute_order(Configuration *config);
 /*
  *  Return a YYYYMMDD_HHMMSS_ string in a heap-allocated buffer
  */
-char *get_datetime_stamp(void);
+char *get_datetime_stamp(int *errnum);
 
 
 /*
