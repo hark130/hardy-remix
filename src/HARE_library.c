@@ -2,14 +2,17 @@
  *  Implements HARE_library.h functions in a standardized way.
  */
 
-#include <errno.h>     // errno
-#include <fcntl.h>     // fcntl(), F_GETFL, F_SETFL
-#include <stdarg.h>    // va_end(), va_start()
-#include <stdlib.h>    // calloc(), free()
-#include <string.h>    // strlen(), strstr()
+#include <errno.h>         // errno
+#include <fcntl.h>         // fcntl(), F_GETFL, F_SETFL
+#include <libgen.h>        // basename()
+#include <linux/limits.h>  // PATH_MAX
+#include <stdarg.h>        // va_end(), va_start()
+#include <stdio.h>         // rename()
+#include <stdlib.h>        // calloc(), free()
+#include <string.h>        // strlen(), strstr()
 #include <sys/types.h>
-#include <sys/stat.h>  // stat()
-#include <unistd.h>    // close(), read()
+#include <sys/stat.h>      // stat()
+#include <unistd.h>        // close(), read()
 #include "HARE_library.h"  // be_sure(), Configuration
 
 // An arbitrarily large maximum log message size has been chosen in an attempt to accommodate
@@ -308,6 +311,11 @@ void execute_order(Configuration *config)
                 syslog_it2(LOG_DEBUG, "Main: Received %s", config->inotify_message.message.buffer);
                 // Received data, now add it to the jobs queue for the threadpool
                 // thpool_add_work(threadPool, execRunner, allocContext(config, context));
+                success = stamp_a_file(config->inotify_message.message.buffer, config->inotify_config.process);
+                if (0 != success)
+                {
+                    syslog_errno(success, "The call to stamp_a_file() failed");
+                }
                 break;
             }
             else
@@ -365,6 +373,7 @@ char *get_datetime_stamp(int *errnum)
 
         // STAMP IT
         // TD: DDN... Properly implement this function
+        stamp = "1234_";
     }
 
     // DONE
@@ -530,47 +539,29 @@ int make_pipes(int empty_pipes[2], int flags)
 }
 
 
-int move_a_file(char *filename, char *dest, bool prepend)
+int move_file(char *source, char *destination)
 {
     // LOCAL VARIABLES
-    int errnum = -1;              // 0 on success, -1 on bad input, errno on failure
-    char *datetime_stamp = NULL;  // Store the datetime stamp here
+    int errnum = -1;  // 0 on success, -1 on bad input, errno on failure
 
     // INPUT VALIDATION
-    // Arguments
-    if (filename && *filename && dest && *dest)
+    if (source && *source && destination && *destination)
     {
-        errnum = 0;
-
-        // Environment
-        if (1 != verify_filename(filename))
+        if (1 == verify_filename(source) && 0 == verify_directory(destination))
         {
-            errnum = -1;
-        }
-        else if (1 != verify_directory(dest))
-        {
-            errnum = -1;
+            errnum = ENOERR;
         }
     }
 
-    // DO IT
+    // MOVE IT
     if (0 == errnum)
     {
-        // Get datetime stamp
-        if (true == prepend)
-        {
-            datetime_stamp = get_datetime_stamp(&errnum);
+        errnum = rename(source, destination);
 
-            if (!datetime_stamp || ENOERR != errnum)
-            {
-                syslog_errno(errnum, "Call to get_datetime_stamp() failed");
-            }
-            else
-            {
-                // TD: DDN... Continue here
-            }
+        if (-1 == errnum)
+        {
+            errnum = errno;
         }
-        errnum = -1;  // TD: DDN... Implement this function properly
     }
 
     // DONE
@@ -736,6 +727,94 @@ off_t size_file(char *filename)
 
     // DONE
     return size;
+}
+
+
+int stamp_a_file(char *source_file, char *dest_dir)
+{
+    // LOCAL VARIABLES
+    int errnum = -1;                              // 0 on success, -1 on bad input, errno on failure
+    char *datetime_stamp = NULL;                  // Store the datetime stamp here
+    char new_filename[FILE_MAX + 1] = { 0 };      // New stamped filename
+    char new_abs_filename[PATH_MAX + 1] = { 0 };  // Concatenated dest_dir and new_filename
+    size_t stamp_len = 0;                         // Length of datetime_stamp
+    size_t dest_len = 0;                          // Length of dest_dir
+
+    // INPUT VALIDATION
+    // Arguments
+    if (source_file && *source_file && dest_dir && *dest_dir)
+    {
+        errnum = 0;
+
+        // Environment
+        if (1 != verify_filename(source_file))
+        {
+            errnum = -1;
+            syslog_it2(LOG_ERR, "Unable to verify source_file: %s", source_file);  // DEBUGGING
+        }
+        else if (1 != verify_directory(dest_dir))
+        {
+            errnum = -1;
+            syslog_it2(LOG_ERR, "Unable to verify dest_dir: %s", dest_dir);  // DEBUGGING
+        }
+    }
+
+    // DO IT
+    if (0 == errnum)
+    {
+        // Get datetime stamp
+        datetime_stamp = get_datetime_stamp(&errnum);
+
+        if (!datetime_stamp || ENOERR != errnum)
+        {
+            syslog_errno(errnum, "Call to get_datetime_stamp() failed");
+        }
+        else
+        {
+            // Form new destination filename
+            stamp_len = strlen(datetime_stamp);
+            dest_len = strlen(dest_dir);
+            memcpy(new_filename, datetime_stamp, stamp_len);
+            strncat(new_filename, basename(source_file), FILE_MAX - stamp_len);
+            syslog_it2(LOG_DEBUG, "new_filename == %s", new_filename);  // DEBUGGING
+            memcpy(new_abs_filename, dest_dir, dest_len);
+            if ('/' != new_abs_filename[strlen(new_abs_filename) - 1])
+            {
+                strncat(new_abs_filename, "/", 2);
+            }
+            strncat(new_abs_filename, new_filename, FILE_MAX);
+            syslog_it2(LOG_DEBUG, "new_abs_filename == %s", new_abs_filename);  // DEBUGGING
+
+        }
+        // errnum = -1;  // TD: DDN... Implement this function properly
+    }
+    // Move the file
+    if (0 == errnum)
+    {
+        errnum = move_file(source_file, new_abs_filename);
+        if (0 == errnum)
+        {
+            syslog_it2(LOG_INFO, "Successfully rename %s to %s", source_file, new_abs_filename);
+        }
+        else if (-1 == errnum)
+        {
+            syslog_it(LOG_ERR, "The call to move_file() failed with bad input");
+        }
+        else
+        {
+            syslog_errno(errnum, "The call to move_file() failed");
+        }
+    }
+
+    // CLEANUP
+    if (datetime_stamp)
+    {
+        // free(datetime_stamp);  // TD: DDN... Uncomment this *after* get_datetime_stamp() is implemented!
+        datetime_stamp = NULL;
+    }
+
+    // DONE
+    return errnum;
 }
 
 

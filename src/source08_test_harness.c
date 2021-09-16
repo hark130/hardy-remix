@@ -289,12 +289,12 @@ int main(int argc, char *argv[])
     // 7. Delete file
     if (1 == file_exists && 0 < daemon)
     {
-        if (-1 == remove(test_filename))
-        {
-            errnum = errno;
-            fprintf(stderr, "Unable to delete %s.\nERROR: %s\n", test_filename, strerror(errnum));
-            log_external("Failed to delete file");  // DEBUGGING
-        }
+        // if (-1 == remove(test_filename))
+        // {
+        //     errnum = errno;
+        //     fprintf(stderr, "Unable to delete %s.\nERROR: %s\n", test_filename, strerror(errnum));
+        //     log_external("Failed to delete file");  // DEBUGGING
+        // }
     }
 
     // DONE

@@ -14,6 +14,8 @@
 #define ENOERR 0
 #endif  // ENOERR
 
+#define FILE_MAX 255  // Maximum length for a Linux filename
+
 /*
  * Stolen from https://opensource.apple.com/source/xnu/xnu-344/bsd/sys/syslog.h.auto.html
  */
@@ -117,14 +119,10 @@ int make_pipes(int empty_pipes[2], int flags);
 
 
 /*
- *  Move filename to dest
- *  Arguments
- *      filename - Filename to move
- *      dest - Directory to move filename to
- *      prepend - If True, prepends the filename with a datetime stamp
+ *  Move a file from source to destination
  *  Returns 0 on success, -1 on bad input, errno on failure
  */
-int move_a_file(char *filename, char *dest, bool prepend);
+int move_file(char *source, char *destination);
 
 
 /*
@@ -159,6 +157,16 @@ char *read_file(char *filename);
  *  Get the size of a file: size on success, -1 on error
  */
 off_t size_file(char *filename);
+
+
+/*
+ *  Move filename to dest and prepend the filename with a datetime stamp
+ *  Arguments
+ *      source_file - Filename to move
+ *      dest_dir - Directory to move filename to
+ *  Returns 0 on success, -1 on bad input, errno on failure
+ */
+int stamp_a_file(char *source_file, char *dest_dir);
 
 
 /*
