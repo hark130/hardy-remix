@@ -207,6 +207,7 @@ int main(int argc, char *argv[])
         if (fd > -1)
         {
             file_exists = 1;
+            log_external("Files exists");  // DEBUGGING
 
             // Get fuzzed content
             // test_content = get_fuzzed_contents("This is my file.\nThere are many like it but this one is mine.\n", &content_size);
@@ -215,6 +216,7 @@ int main(int argc, char *argv[])
 
             if (test_content && content_size > 0)
             {
+                syslog_it2(LOG_DEBUG, "Current status is... fd: %d, test_content: (%p) %s, content size: %zu", fd, test_content, test_content, content_size);  // DEBUGGING
                 // Write
                 if (-1 == write(fd, test_content, content_size))
                 {
@@ -251,7 +253,7 @@ int main(int argc, char *argv[])
         else
         {
             errnum = errno;
-            fprintf(stderr, "Unable to make file %s.\nERROR: %s\n", test_filename, strerror(errnum));
+            syslog_errno(errnum, "Unable to make file %s", test_filename);
             log_external(test_filename);  // DEBUGGING
             log_external("Failed to create file");  // DEBUGGING
         }
@@ -289,12 +291,12 @@ int main(int argc, char *argv[])
     // 7. Delete file
     if (1 == file_exists && 0 < daemon)
     {
-        // if (-1 == remove(test_filename))
-        // {
-        //     errnum = errno;
-        //     fprintf(stderr, "Unable to delete %s.\nERROR: %s\n", test_filename, strerror(errnum));
-        //     log_external("Failed to delete file");  // DEBUGGING
-        // }
+        if (-1 == remove(test_filename))
+        {
+            errnum = errno;
+            fprintf(stderr, "Unable to delete %s.\nERROR: %s\n", test_filename, strerror(errnum));
+            log_external("Failed to delete file");  // DEBUGGING
+        }
     }
 
     // DONE
