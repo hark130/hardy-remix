@@ -12,6 +12,7 @@
 #include <string.h>        // strlen(), strstr()
 #include <sys/types.h>
 #include <sys/stat.h>      // stat()
+#include <time.h>          // localtime(), time_t
 #include <unistd.h>        // close(), read()
 #include "HARE_library.h"  // be_sure(), Configuration
 
@@ -364,16 +365,33 @@ char *get_filename(int argc, char *argv[])
 char *get_datetime_stamp(int *errnum)
 {
     // LOCAL VARIABLES
-    char *stamp = NULL;
+    char *stamp = NULL;                              // YYYYMMDD_HHMMSS_
+    char format[] = { "%04d%02d%02d_%02d%02d%02d_"}; // snprintf() format
+    size_t stamp_len = strlen("YYYYMMDD_HHMMSS_");   // Readable length of stamp
+    time_t T = time(NULL);                           // Number of sec since Epoch
+    struct tm time = *localtime(&T);                 // Transform datetime
 
     // INPUT VALIDATION
     if (errnum)
     {
-        *errnum = ENOERR;
+        *errnum = ENOERR;  // Initialize
 
         // STAMP IT
-        // TD: DDN... Properly implement this function
-        stamp = "1234_";
+        // Allocate
+        stamp = calloc(stamp_len + 1, sizeof(char));
+
+        if (!stamp)
+        {
+            *errnum = errno;
+        }
+        else if (stamp_len != snprintf(stamp, stamp_len + 1, format,
+                                       time.tm_year + 1900, time.tm_mon, time.tm_mday,
+                                       time.tm_hour, time.tm_min, time.tm_sec))
+        {
+            *errnum = errno;
+            free(stamp);
+            stamp = NULL;
+        }
     }
 
     // DONE
@@ -794,7 +812,7 @@ int stamp_a_file(char *source_file, char *dest_dir)
         errnum = move_file(source_file, new_abs_filename);
         if (0 == errnum)
         {
-            syslog_it2(LOG_INFO, "Successfully rename %s to %s", source_file, new_abs_filename);
+            syslog_it2(LOG_INFO, "Successfully renamed %s to %s", source_file, new_abs_filename);
         }
         else if (-1 == errnum)
         {
@@ -809,7 +827,7 @@ int stamp_a_file(char *source_file, char *dest_dir)
     // CLEANUP
     if (datetime_stamp)
     {
-        // free(datetime_stamp);  // TD: DDN... Uncomment this *after* get_datetime_stamp() is implemented!
+        free(datetime_stamp);
         datetime_stamp = NULL;
     }
 
