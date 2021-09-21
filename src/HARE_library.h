@@ -54,7 +54,10 @@ typedef struct _Configuration
 #define PIPE_READ 0
 #define PIPE_WRITE 1
 #define INVALID_FD -1
-extern int pipe_fds[2];  // Pipe used to send data from the test harness to the daemon as if it was inotify
+extern int pipe_fds[2];           // Pipe used to send data from the test harness to the daemon as if it was inotify
+extern char *base_filename;       // Name of the file-based test case created by the test harness
+extern size_t base_filename_len;  // Length of the base_filename
+extern char *processed_filename;  // Absolute filename of a file that matches on base_filename
 
 
 /*
@@ -62,6 +65,13 @@ extern int pipe_fds[2];  // Pipe used to send data from the test harness to the 
  * Returns PID if parent, 0 if child, -1 on failure
  */
 pid_t be_sure(Configuration *config);
+
+
+/*
+ *  Search dirname for a file that matches filename and delete it
+ *  Returns 0 on success, -1 on error, -2 if no match found, and errnum on failure
+ */
+int delete_matching_file(char *dirname, char *filename, size_t filename_len);
 
 
 /*

@@ -291,6 +291,34 @@ pid_t be_sure(Configuration *config)
 }
 
 
+int delete_matching_file(char *dirname, char *filename, size_t filename_len)
+{
+    // LOCAL VARIABLES
+    int results = -1;  // 0 on success, -1 on error, -2 if no match found, and errnum on failure
+
+    // INPUT VALIDATION
+    if (filename && filename_len > 0 && 1 == verify_directory(dirname))
+    {
+        results = 0;
+    }
+
+    // FIND IT
+    if (0 == results)
+    {
+
+    }
+
+    // DELETE IT
+    if (0 == results)
+    {
+
+    }
+
+    // DONE
+    return results;
+}
+
+
 void execute_order(Configuration *config)
 {
     // LOCAL VARIABLES

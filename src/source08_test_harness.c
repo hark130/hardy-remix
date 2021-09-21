@@ -24,6 +24,10 @@
 // sighandler_t old_sig_handlers[128] = { NULL };
 
 int pipe_fds[2] = {INVALID_FD, INVALID_FD};  // Intializing global externed variable
+char *base_filename = NULL;                  // Name of the file-based test case created by the test harness
+size_t base_filename_len = 0;                // Length of the base_filename
+char *processed_filename = NULL;             // Absolute filename of a file that matches on base_filename
+
 
 /*
  *  Check to see if dirname exists: Returns 1 if exists, 0 if not, -1 on error
@@ -114,7 +118,7 @@ int main(int argc, char *argv[])
     char *test_content = NULL;     // Fuzzed test file contents
     size_t content_size = 0;       // Readable size of test_content
     int fd = 0;                    // Filename's file descriptor
-    int file_exists = 0;           // Makeshift boolean to track file creation
+    // int file_exists = 0;           // Makeshift boolean to track file creation
     int errnum = 0;                // Store errno values
     Configuration config = { 0 };  // Pass to be_sure()
     mode_t old_umask = 0;          // Store umask() value here and restore it
@@ -206,8 +210,8 @@ int main(int argc, char *argv[])
         fd = open(test_filename, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
         if (fd > -1)
         {
-            file_exists = 1;
-            log_external("Files exists");  // DEBUGGING
+            // file_exists = 1;
+            log_external("File exists");  // DEBUGGING
 
             // Get fuzzed content
             // test_content = get_fuzzed_contents("This is my file.\nThere are many like it but this one is mine.\n", &content_size);
@@ -288,20 +292,49 @@ int main(int argc, char *argv[])
         // Did this filename show up in the fuzzer's "output"?  (If so, maybe save it?)
     }
 
-    // 7. Delete file
-    if (1 == file_exists && 0 < daemon)
+    // 7. Delete files
+    // NOTE: Let the child process (AKA the daemon) delete the file to avoid a race condition
+    // if (1 == file_exists && 0 == daemon)
+    if (0 == daemon)
     {
-        if (-1 == remove(test_filename))
+        if (1 == verify_filename(test_filename))
         {
-            errnum = errno;
-            fprintf(stderr, "Unable to delete %s.\nERROR: %s\n", test_filename, strerror(errnum));
-            log_external("Failed to delete file");  // DEBUGGING
+            if (-1 == remove(test_filename))
+            {
+                errnum = errno;
+                fprintf(stderr, "Unable to delete %s.\nERROR: %s\n", test_filename, strerror(errnum));
+                log_external("Failed to delete file");  // DEBUGGING
+            }
+        }
+        else
+        {
+            errnum = delete_matching_file(config.inotify_config.watched, base_filename, base_filename_len);
+            // Returns 0 on success, -1 on error, -2 if no match found, and errnum on failure
+            if (-2 == errnum)
+            {
+                syslog_it2(LOG_DEBUG, "No %s match found in %s for the (CHILD) to cleanup", base_filename, config.inotify_config.watched);  // DEBUGGING
+            }
+            else if (-1 == errnum)
+            {
+                syslog_it2(LOG_ERR, "delete_matching_file(%s, %s, %zu) encountered an unspecified error", config.inotify_config.watched, base_filename, base_filename_len);
+            }
+            else if (0 == errnum)
+            {
+                syslog_it2(LOG_INFO, "Successfully deleted a file matching %s from within %s", base_filename, config.inotify_config.watched);
+            }
+            else
+            {
+                syslog_errno(errnum, "delete_matching_file(%s, %s, %zu) encountered an error", config.inotify_config.watched, base_filename, base_filename_len);
+            }
         }
     }
 
+    // Empty processed
+    // TD: DDN...
+
     // DONE
     // TD: DDN... Should we add a safety check here to forcibly stop the "daemon" if it didn't already quit?
-    if (0 < daemon)
+    if (0 == daemon)
     {
         // Restore umask
         old_umask = umask(old_umask);
@@ -328,6 +361,20 @@ int main(int argc, char *argv[])
             free(test_content);
             test_content = NULL;
         }
+    }
+
+    // DEBUGGING RACE CONDITIONS
+    if (0 < daemon)
+    {
+        log_external("(PARENT) Exiting");
+    }
+    else if (0 == daemon)
+    {
+        log_external("(CHILD) Exiting");
+    }
+    else
+    {
+        log_external("HOW DID WE GET HERE?!");
     }
     return success;
 }
@@ -586,6 +633,8 @@ char *prepend_test_input(char *filename, char *prepend, size_t *total_size)
         // fprintf(stderr, "OLD TEST INPUT: %s\n", old_test_input);  // DEBUGGING
         if (old_test_input && *old_test_input && prepend && *prepend)
         {
+            base_filename = old_test_input;
+            base_filename_len = buff_size;
             prepend_len = strlen(prepend);
             new_test_input = calloc(prepend_len + buff_size + 1, sizeof(char));
             if (new_test_input)
@@ -611,7 +660,7 @@ char *prepend_test_input(char *filename, char *prepend, size_t *total_size)
                 // fprintf(stderr, "ERROR: calloc failed with %s\n", strerror(errno));  // DEBUGGING
                 error++;
             }
-            free(old_test_input);
+            // free(old_test_input);  // Don't free it here.  free(base_filename) at exit-time.
             old_test_input = NULL;
         }
         else
@@ -638,6 +687,7 @@ char *prepend_test_input(char *filename, char *prepend, size_t *total_size)
             free(new_test_input);
             new_test_input = NULL;
         }
+        base_filename = NULL;
     }
     // fprintf(stderr, "NEW TEST INPUT: %s\n", new_test_input);  // DEBUGGING
     return new_test_input;
