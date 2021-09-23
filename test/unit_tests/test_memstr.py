@@ -119,7 +119,7 @@ class NormalTestMemstr(TestMemstr):
     def test_normal_01(self):
         """Basic string matching."""
         haystack = byteify_a_string('This is my string.  '
-            'There are many like it but this one is mine.')
+                                    'There are many like it but this one is mine.')
         needle = b'my string'
         self.set_test_input(haystack, needle, len(needle))
         self.expect_return(True)

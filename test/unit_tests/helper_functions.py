@@ -13,7 +13,7 @@ def append_noise(source: bytes, lower_limit: int = 64, upper_limit: int = 1024) 
         upper_limit: Optional; Maximum num of random bytes, inclusive, to trail the nul char
 
     Returns:
-        A byte array containing source, terminated by a nul character (encoded as ascii), and 
+        A byte array containing source, terminated by a nul character (encoded as ascii), and
         appended with a psuedorandom number of psuedorandom bytes.
 
     Raises:

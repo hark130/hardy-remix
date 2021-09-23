@@ -1,7 +1,6 @@
 from hobo.validation import validate_string, validate_type
 
 
-
 NUL_CHAR = bytes(chr(0), 'ascii')  # Nul character
 
 
