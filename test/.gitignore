@@ -2,3 +2,7 @@
 *
 # Except this file
 !.gitignore
+# Also, the unit_tests directory
+!unit_tests
+# Also, any files in that directory
+!unit_tests/*
