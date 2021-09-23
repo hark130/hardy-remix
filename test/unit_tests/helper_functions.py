@@ -110,7 +110,6 @@ def randomize_bytes(lower_limit: int = 64, upper_limit: int = 1024) -> bytes:
     else:
         num_bytes = random.randint(lower_limit, upper_limit)
     # Randomize bytes
-    byte_string += bytes(chr(0), 'ascii')
     byte_string += bytes([random.randint(0, 255) for _ in range(0, num_bytes)])
 
     # DONE
