@@ -193,6 +193,66 @@ bool isRootUser()
 }
 
 
+/*
+ *  Compares fpath to base_filename.  Sets processed_filename if a match is found.
+ *  Returns 1 if a file match is found (stop), 0 on no match (continue), and -1 on error
+ *  Notes
+ *      base_filename and processed_filename are both externed globals found in HARE_library.h.
+ *          They are both initialized and utilized in source08_test_harness.c.
+ */
+static int match_file(const char *fpath, const struct stat *sb, int tflag, struct FTW *ftwbuf)
+{
+    // LOCAL VARIABLES
+    int continue = 0;                            // 0 to continue, 1 to stop, -1 on error
+    char *base_fpath = NULL;                     // Address to the base filename of fpath
+    char *needle_file = base_filename;           // Filename to match on
+    size_t needle_file_len = base_filename_len;  // Length of needle_file
+    bool nul_in_needle = false;                  // A nul character in the needle_file is a game changer
+
+    // INPUT VALIDATION
+    if (FTW_F != tflag)
+    {
+        syslog_it2(LOG_DEBUG, "Not a file so we're skipping %s", fpath);  // DEBUGGING
+    }
+    else if (fpath && sb && ftwbuf && needle_file && 0 < needle_file_len)
+    {
+        syslog_it2(LOG_DEBUG, "CURRENT STATUS... fpath: %s needle: %s needle length: %zu", fpath, needle_file, needle_file_len);  // DEBUGGING
+        // MATCH FILE NAMES
+        // 1. Does the needle have a nul character?
+        if (strlen(needle_file) != needle_file_len)
+        {
+            nul_in_needle = true;
+        }
+        // 2. Matching strategies
+        if ()
+    }
+    else
+    {
+        continue = -1;
+    }
+
+    printf("%-3s %2d ",
+     (tflag == FTW_D) ?   "d"   : (tflag == FTW_DNR) ? "dnr" :
+     (tflag == FTW_DP) ?  "dp"  : (tflag == FTW_F) ?   "f" :
+     (tflag == FTW_NS) ?  "ns"  : (tflag == FTW_SL) ?  "sl" :
+     (tflag == FTW_SLN) ? "sln" : "???",
+     ftwbuf->level);
+
+    if (tflag == FTW_NS)
+    {
+        printf("-------");
+    }
+    else
+    {
+        printf("%7jd", (intmax_t) sb->st_size);
+    }
+
+    printf("   %-40s %d %s\n", fpath, ftwbuf->base, fpath + ftwbuf->base);
+
+    return continue;
+}
+
+
 int redirectStdStreams()
 {
     int status = 0;                  // Return value
@@ -753,6 +813,40 @@ char *read_a_pipe(int read_fd, int *msg_len, int *errnum)
 
     // DONE
     return retval;
+}
+
+
+char *search_dir(char *haystack_dir, char *needle_file, size_t needle_file_len)
+{
+    // LOCAL VARIABLES
+    char *matching_file = NULL;  // Filename that matches needle_file
+    bool success = false;        // Flow control
+
+    // INPUT VALIDATION
+    // haystack_dir
+    if (!haystack_dir || 0x0 == *haystack_dir)
+    {
+        syslog_it(LOG_DEBUG, "Problem with haystack_dir");  // DEBUGGING
+    }
+    else if (1 != verify_directory(haystack_dir))
+    {
+        syslog_it2(LOG_DEBUG, "Unable to verify directory: %s", haystack_dir);  // DEBUGGING
+    }
+    // needle_file
+    else if (!needle_file || 0x0 == *needle_file)
+    {
+        syslog_it(LOG_DEBUG, "Problem with needle_file");  // DEBUGGING
+    }
+    // needle_file_len
+    else if (0 >= needle_file_len)
+    {
+        syslog_it2(LOG_DEBUG, "Invalid needle_file_len of %zu", needle_file_len);  // DEBUGGING
+    }
+    else
+    {
+        success = true;
+    }
+
 }
 
 
