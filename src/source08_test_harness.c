@@ -361,6 +361,12 @@ int main(int argc, char *argv[])
             free(test_content);
             test_content = NULL;
         }
+        // processed_filename
+        if (processed_filename)
+        {
+            free(processed_filename);
+            processed_filename = NULL;
+        }
     }
 
     // DEBUGGING RACE CONDITIONS
