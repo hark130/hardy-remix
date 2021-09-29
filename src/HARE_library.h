@@ -166,10 +166,8 @@ char *read_file(char *filename);
 /*
  *  Recursively searches haystack_dir for a filename whose ending matches needle_file
  *  Returns absolute filename on success, NULL on failure or "no match"
- *  Notes
- *      Do not free the return value.
  */
-char *search_dir(char *haystack_dir, char *needle_file, size_t needle_file_len);
+const char *search_dir(char *haystack_dir, char *needle_file, size_t needle_file_len);
 
 
 /*

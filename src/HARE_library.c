@@ -2,8 +2,10 @@
  *  Implements HARE_library.h functions in a standardized way.
  */
 
+#define _XOPEN_SOURCE 500  // Let's use nftw()
 #include <errno.h>         // errno
 #include <fcntl.h>         // fcntl(), F_GETFL, F_SETFL
+#include <ftw.h>           // nftw(), FTW macros
 #include <libgen.h>        // basename()
 #include <linux/limits.h>  // PATH_MAX
 #include <stdarg.h>        // va_end(), va_start()
@@ -200,56 +202,336 @@ bool isRootUser()
  *      base_filename and processed_filename are both externed globals found in HARE_library.h.
  *          They are both initialized and utilized in source08_test_harness.c.
  */
-static int match_file(const char *fpath, const struct stat *sb, int tflag, struct FTW *ftwbuf)
+// static int match_file(const char *fpath, const struct stat *sb, int tflag, struct FTW *ftwbuf)
+// {
+//     // LOCAL VARIABLES
+//     int continue = 0;                            // 0 to continue, 1 to stop, -1 on error
+//     char *base_fpath = NULL;                     // Address to the base filename of fpath
+//     char *needle_file = base_filename;           // Filename to match on
+//     size_t needle_file_len = base_filename_len;  // Length of needle_file
+//     bool nul_in_needle = false;                  // A nul character in the needle_file is a game changer
+
+//     // INPUT VALIDATION
+//     if (FTW_F != tflag)
+//     {
+//         syslog_it2(LOG_DEBUG, "Not a file so we're skipping %s", fpath);  // DEBUGGING
+//     }
+//     else if (fpath && sb && ftwbuf && needle_file && 0 < needle_file_len)
+//     {
+//         syslog_it2(LOG_DEBUG, "CURRENT STATUS... fpath: %s needle: %s needle length: %zu", fpath, needle_file, needle_file_len);  // DEBUGGING
+//         // MATCH FILE NAMES
+//         // 1. Does the needle have a nul character?
+//         if (strlen(needle_file) != needle_file_len)
+//         {
+//             nul_in_needle = true;
+//         }
+//         // 2. Matching strategies
+//         if (true == nul_in_needle)
+//         {
+//             _nul_file_matching
+//         }
+//     }
+//     else
+//     {
+//         continue = -1;
+//     }
+
+//     return continue;
+// }
+
+
+/*
+ *  Perform input validation on behalf of the _*nul_file_match() functions
+ *  Returns -1 on error, 0 otherwise
+ */
+int _validate_file_match(const char *fpath, const struct stat *sb, int tflag, struct FTW *ftwbuf)
 {
     // LOCAL VARIABLES
-    int continue = 0;                            // 0 to continue, 1 to stop, -1 on error
-    char *base_fpath = NULL;                     // Address to the base filename of fpath
-    char *needle_file = base_filename;           // Filename to match on
-    size_t needle_file_len = base_filename_len;  // Length of needle_file
-    bool nul_in_needle = false;                  // A nul character in the needle_file is a game changer
+    int results = -1;
 
     // INPUT VALIDATION
-    if (FTW_F != tflag)
+    if (fpath && *fpath && sb && ftwbuf)
     {
-        syslog_it2(LOG_DEBUG, "Not a file so we're skipping %s", fpath);  // DEBUGGING
+        results = 0;
     }
-    else if (fpath && sb && ftwbuf && needle_file && 0 < needle_file_len)
+
+    // DONE
+    return results;
+}
+
+
+/*
+ *  Implements and utilizes the non-nul terminator filename matching algorithm as the
+ *      nftw() callback
+ *  Returns 1 on a match, -1 on error, 0 otherwise (tells nftw() to continue)
+ */
+static int _non_nul_file_match(const char *fpath, const struct stat *sb, int tflag, struct FTW *ftwbuf)
+{
+    // LOCAL VARIABLES
+    int results = 0;                  // 1 on a match, -1 on error, 0 otherwise (tells nftw() to continue)
+    const char *fpath_base = NULL;    // Base filename from fpath
+    size_t fpath_base_len = 0;        // Length of fpath's base filename
+    size_t fpath_len = 0;             // Length of fpath
+
+    // INPUT VALIDATION
+    // Arguments
+    results = _validate_file_match(fpath, sb, tflag, ftwbuf);
+    // Globals
+    if (!base_filename || 0 >= base_filename_len)
     {
-        syslog_it2(LOG_DEBUG, "CURRENT STATUS... fpath: %s needle: %s needle length: %zu", fpath, needle_file, needle_file_len);  // DEBUGGING
-        // MATCH FILE NAMES
-        // 1. Does the needle have a nul character?
-        if (strlen(needle_file) != needle_file_len)
+        results = -1;
+    }
+
+    // DO IT
+    if (-1 != results)
+    {
+        if (FTW_F != tflag)
         {
-            nul_in_needle = true;
+            syslog_it2(LOG_DEBUG, "Not a file so we're skipping %s", fpath);  // DEBUGGING
         }
-        // 2. Matching strategies
-        if ()
+        else
+        {
+            fpath_base = fpath + ftwbuf->base;  // Just the filename
+            fpath_base_len = strlen(fpath_base);  // Length of the filename
+            syslog_it2(LOG_DEBUG, "fpath: %s", fpath);  // DEBUGGING
+            syslog_it2(LOG_DEBUG, "fpath_base: %s", fpath_base);  // DEBUGGING
+            syslog_it2(LOG_DEBUG, "fpath_base_len: %zu", fpath_base_len);  // DEBUGGING
+            syslog_it2(LOG_DEBUG, "base_filename: %s", base_filename);
+
+            if (fpath_base_len < base_filename_len)
+            {
+                results = 0;  // There's not enough room for a match
+            }
+            else if (!memcmp(fpath_base + (fpath_base_len - base_filename_len), base_filename, base_filename_len))
+            {
+                fpath_len = strlen(fpath);
+                processed_filename = calloc(fpath_len + 1, sizeof(char));
+                if (processed_filename)
+                {
+                    if (processed_filename != memcpy(processed_filename, fpath, fpath_len))
+                    {
+                        results = -1;
+                    }
+                    else
+                    {
+                        syslog_it2(LOG_DEBUG, "NON-'nul' processed_filename is %s", processed_filename);  // DEBUGGING
+                        results = 1;
+                    }
+                }
+                else
+                {
+                    results = -1;
+                }
+            }
+        }
     }
-    else
+
+    // CLEANUP
+    if (-1 == results)
     {
-        continue = -1;
+        if (processed_filename)
+        {
+            free(processed_filename);
+            processed_filename = NULL;
+        }
     }
 
-    printf("%-3s %2d ",
-     (tflag == FTW_D) ?   "d"   : (tflag == FTW_DNR) ? "dnr" :
-     (tflag == FTW_DP) ?  "dp"  : (tflag == FTW_F) ?   "f" :
-     (tflag == FTW_NS) ?  "ns"  : (tflag == FTW_SL) ?  "sl" :
-     (tflag == FTW_SLN) ? "sln" : "???",
-     ftwbuf->level);
+    // DONE
+    return results;
+}
 
-    if (tflag == FTW_NS)
+
+/*
+ *  Implements and utilizes the nul terminator filename matching algorithm as the nftw() callback
+ *  Returns 1 on a match, -1 on error, 0 otherwise (tells nftw() to continue)
+ */
+static int _nul_file_match(const char *fpath, const struct stat *sb, int tflag, struct FTW *ftwbuf)
+{
+    // LOCAL VARIABLES
+    int results = 0;                // 1 on a match, -1 on error, 0 otherwise (tells nftw() to continue)
+    const char *fpath_base = NULL;  // Base filename from fpath
+    size_t fpath_base_len = 0;      // Length of fpath's base filename
+    size_t base_filename_nul = 0;   // Find the nul-terminator in the base_filename
+    size_t new_buff_len = 0;        // Length of the heap-allocated buffer to provide the caller
+
+    // INPUT VALIDATION
+    // Arguments
+    results = _validate_file_match(fpath, sb, tflag, ftwbuf);
+    // Globals
+    if (!base_filename || 0 >= base_filename_len)
     {
-        printf("-------");
+        results = -1;
     }
-    else
+
+    // DO IT
+    if (-1 != results)
     {
-        printf("%7jd", (intmax_t) sb->st_size);
+        if (FTW_F != tflag)
+        {
+            syslog_it2(LOG_DEBUG, "Not a file so we're skipping %s", fpath);  // DEBUGGING
+        }
+        else
+        {
+            fpath_base = fpath + ftwbuf->base;  // Just the filename
+            fpath_base_len = strlen(fpath_base);  // Length of the filename
+            base_filename_nul = strlen(base_filename);  // Index of the base_filename nul character
+
+            if (fpath_base_len < base_filename_nul)
+            {
+                results = 0;  // There's not enough room for a match
+            }
+            else if (!memcmp(fpath_base + (fpath_base_len - base_filename_nul), base_filename, base_filename_len))
+            {
+                // NOTE: The *real* buffer size would be:
+                //  strlen(fpath) + 1 + base_filename_len - strlen(base_file_len) + 1, sizeof(char)
+                //  ...but, when it comes to memory, better to overshoot than undershoot.
+                new_buff_len = strlen(fpath) + 1 + base_filename_len;
+                processed_filename = calloc(new_buff_len + 1, sizeof(char));
+                if (processed_filename)
+                {
+                    if (processed_filename != memcpy(processed_filename, fpath, new_buff_len))
+                    {
+                        results = -1;
+                    }
+                    else
+                    {
+                        syslog_it2(LOG_DEBUG, "'nul' processed_filename is %s", processed_filename);  // DEBUGGING
+                        results = 1;
+                    }
+                }
+                else
+                {
+                    results = -1;
+                }
+            }
+        }
     }
 
-    printf("   %-40s %d %s\n", fpath, ftwbuf->base, fpath + ftwbuf->base);
+    // CLEANUP
+    if (-1 == results)
+    {
+        if (processed_filename)
+        {
+            free(processed_filename);
+            processed_filename = NULL;
+        }
+    }
 
-    return continue;
+    // DONE
+    return results;
+}
+
+
+/*
+ *  Perform input validation on behalf of the *_nul_file_matching() functions
+ *  Returns -1 on error, 0 otherwise
+ */
+int _validate_file_matching(char *dirname, char *filename, size_t filename_len)
+{
+    // LOCAL VARIABLES
+    int results = 0;  // -1 on error, 0 otherwise
+
+    // INPUT VALIDATION
+    // dirname
+    if (!dirname)
+    {
+        results = -1;
+    }
+    else if (1 != verify_directory(dirname))
+    {
+        results = -1;
+    }
+    // filename
+    else if (!filename)
+    {
+        results = -1;
+    }
+    // filename_len
+    else if (0 >= filename_len)
+    {
+        results = -1;
+    }
+
+    // DONE
+    return results;
+}
+
+
+/*
+ *  Executes a recursive dirwalk on dirname attempting to match filename if filename
+ *      contains a premature nul character.  Does not validate input.
+ *  Returns 1 on a match, -1 on error, 0 otherwise
+ */
+int _nul_file_matching(char *dirname, char *filename, size_t filename_len)
+{
+    // LOCAL VARIABLES
+    int results = 0;                   // 1 on a match, -1 on error, 0 otherwise
+    int flags = FTW_DEPTH | FTW_PHYS;  // See: man nftw
+
+    // DIRWALK
+    results = nftw(dirname, _nul_file_match, 4, flags);
+
+    // VERIFY RESULTS
+    if (processed_filename)
+    {
+        if (NULL != strstr(processed_filename, filename))
+        {
+            syslog_it2(LOG_DEBUG, "_nul_file_matching() matched %s in %s with %s",
+                       filename, dirname, processed_filename);
+        }
+        else
+        {
+            syslog_it2(LOG_DEBUG, "Odd that _nul_file_matching() matched %s in %s with %s",
+                       filename, dirname, processed_filename);
+        }
+    }
+    else if (1 == results)
+    {
+        syslog_it(LOG_DEBUG, "How can the processed_filename pointer be NULL but nftw() claims a match?!");
+        results = -1;  // Can't have a match if the pointer is NULL!
+    }
+
+    // DONE
+    return results;
+}
+
+
+/*
+ *  Executes a recursive dirwalk on dirname attempting to match filename if filename
+ *      does not contains a premature nul character.  Does not validate input.
+ *  Returns 1 on a match, -1 on error, 0 otherwise
+ */
+int _non_nul_file_matching(char *dirname, char *filename, size_t filename_len)
+{
+    // LOCAL VARIABLES
+    int results = 0;                   // 1 on a match, -1 on error, 0 otherwise
+    int flags = FTW_DEPTH | FTW_PHYS;  // See: man nftw
+
+    // DIRWALK
+    results = nftw(dirname, _non_nul_file_match, 4, flags);
+
+    // VERIFY RESULTS
+    if (processed_filename)
+    {
+        if (NULL != strstr(processed_filename, filename))
+        {
+            syslog_it2(LOG_DEBUG, "_non_nul_file_matching() matched %s in %s with %s",
+                       filename, dirname, processed_filename);
+        }
+        else
+        {
+            syslog_it2(LOG_DEBUG, "Odd that _non_nul_file_matching() matched %s in %s with %s",
+                       filename, dirname, processed_filename);
+        }
+    }
+    else if (1 == results)
+    {
+        syslog_it(LOG_DEBUG, "How can the processed_filename pointer be NULL but nftw() claims a match?!");
+        results = -1;  // Can't have a match if the pointer is NULL!
+    }
+
+    // DONE
+    return results;
 }
 
 
@@ -354,24 +636,27 @@ pid_t be_sure(Configuration *config)
 int delete_matching_file(char *dirname, char *filename, size_t filename_len)
 {
     // LOCAL VARIABLES
-    int results = -1;  // 0 on success, -1 on error, -2 if no match found, and errnum on failure
+    int results = -1;                 // 0 on success, -1 on error, -2 if no match found, and errnum on failure
+    const char *matched_file = NULL;  // Filename to delete
 
     // INPUT VALIDATION
-    if (filename && filename_len > 0 && 1 == verify_directory(dirname))
-    {
-        results = 0;
-    }
+    results = _validate_file_matching(dirname, filename, filename_len);
 
     // FIND IT
     if (0 == results)
     {
-
+        matched_file = search_dir(dirname, filename, filename_len);
+        if (!matched_file)
+        {
+            results = -2;  // Validation passed but no match found
+        }
     }
 
     // DELETE IT
     if (0 == results)
     {
-
+        syslog_it2(LOG_DEBUG, "We're about to delete %s because it matched!", matched_file);  // DEBUGGING
+        results = 0;  // Translate return value
     }
 
     // DONE
@@ -816,11 +1101,12 @@ char *read_a_pipe(int read_fd, int *msg_len, int *errnum)
 }
 
 
-char *search_dir(char *haystack_dir, char *needle_file, size_t needle_file_len)
+const char *search_dir(char *haystack_dir, char *needle_file, size_t needle_file_len)
 {
     // LOCAL VARIABLES
-    char *matching_file = NULL;  // Filename that matches needle_file
-    bool success = false;        // Flow control
+    const char *matching_file = NULL;  // Filename that matches needle_file
+    bool nul_in_needle = false;        // Different function calls based on nul characters
+    int results = 0;                   // Return value from internal function calls
 
     // INPUT VALIDATION
     // haystack_dir
@@ -842,11 +1128,33 @@ char *search_dir(char *haystack_dir, char *needle_file, size_t needle_file_len)
     {
         syslog_it2(LOG_DEBUG, "Invalid needle_file_len of %zu", needle_file_len);  // DEBUGGING
     }
+    // DIR WALK
     else
     {
-        success = true;
+        // Is there a premature nul-character in needle_file?
+        syslog_it2(LOG_DEBUG, "needle_file_len is %zu and strlen(needle_file) is %zu", needle_file_len, strlen(needle_file));  // DEBUGGING
+        if (needle_file_len != strlen(needle_file))
+        {
+            nul_in_needle = true;
+        }
+        // Find it!
+        if (true == nul_in_needle)
+        {
+            results = _nul_file_matching(haystack_dir, needle_file, needle_file_len);
+        }
+        else
+        {
+            results = _non_nul_file_matching(haystack_dir, needle_file, needle_file_len);
+        }
+        // What happened?
+        if (1 == results)
+        {
+            matching_file = processed_filename;
+        }
     }
 
+    // DONE
+    return matching_file;
 }
 
 
