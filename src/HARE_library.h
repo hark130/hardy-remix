@@ -68,6 +68,13 @@ pid_t be_sure(Configuration *config);
 
 
 /*
+ *  Delete filename
+ *  Returns 0 on success, -1 on error, and errnum on failure
+ */
+int delete_file(char *filename);
+
+
+/*
  *  Search dirname for a file that matches filename and delete it
  *  Returns 0 on success, -1 on error, -2 if no match found, and errnum on failure
  */
@@ -167,7 +174,7 @@ char *read_file(char *filename);
  *  Recursively searches haystack_dir for a filename whose ending matches needle_file
  *  Returns absolute filename on success, NULL on failure or "no match"
  */
-const char *search_dir(char *haystack_dir, char *needle_file, size_t needle_file_len);
+char *search_dir(char *haystack_dir, char *needle_file, size_t needle_file_len);
 
 
 /*

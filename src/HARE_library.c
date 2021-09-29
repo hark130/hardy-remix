@@ -9,7 +9,7 @@
 #include <libgen.h>        // basename()
 #include <linux/limits.h>  // PATH_MAX
 #include <stdarg.h>        // va_end(), va_start()
-#include <stdio.h>         // rename()
+#include <stdio.h>         // rename(), remove()
 #include <stdlib.h>        // calloc(), free()
 #include <string.h>        // strlen(), strstr()
 #include <sys/types.h>
@@ -633,11 +633,47 @@ pid_t be_sure(Configuration *config)
 }
 
 
+int delete_file(char *filename)
+{
+    // LOCAL VARIABLES
+    int results = -1;  // 0 on success, -1 on error, and errnum on failure
+    int errnum = 0;    // Store errno here
+
+    // INPUT VALIDATION
+    results = verify_filename(filename);
+
+    // DELETE IT
+    if (1 == results)
+    {
+        results = remove(filename);
+        if (results)
+        {
+            errnum = errno;
+            if (errnum)
+            {
+                results = errnum;
+            }
+            else
+            {
+                results = -1;
+            }
+        }
+    }
+    else
+    {
+        results = -1;
+    }
+
+    // DONE
+    return results;
+}
+
+
 int delete_matching_file(char *dirname, char *filename, size_t filename_len)
 {
     // LOCAL VARIABLES
     int results = -1;                 // 0 on success, -1 on error, -2 if no match found, and errnum on failure
-    const char *matched_file = NULL;  // Filename to delete
+    char *matched_file = NULL;  // Filename to delete
 
     // INPUT VALIDATION
     results = _validate_file_matching(dirname, filename, filename_len);
@@ -656,7 +692,7 @@ int delete_matching_file(char *dirname, char *filename, size_t filename_len)
     if (0 == results)
     {
         syslog_it2(LOG_DEBUG, "We're about to delete %s because it matched!", matched_file);  // DEBUGGING
-        results = 0;  // Translate return value
+        results = delete_file(matched_file);
     }
 
     // DONE
@@ -1101,10 +1137,10 @@ char *read_a_pipe(int read_fd, int *msg_len, int *errnum)
 }
 
 
-const char *search_dir(char *haystack_dir, char *needle_file, size_t needle_file_len)
+char *search_dir(char *haystack_dir, char *needle_file, size_t needle_file_len)
 {
     // LOCAL VARIABLES
-    const char *matching_file = NULL;  // Filename that matches needle_file
+    char *matching_file = NULL;  // Filename that matches needle_file
     bool nul_in_needle = false;        // Different function calls based on nul characters
     int results = 0;                   // Return value from internal function calls
 
