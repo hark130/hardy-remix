@@ -146,6 +146,9 @@ int main(int argc, char *argv[])
         config.inotify_config.watched = "./watch/";
         config.inotify_config.process = "./watch/processed/";
     }
+    // syslog_it2(LOG_DEBUG, "BEFORE: %s", test_filename);  // DEBUGGING
+    // test_filename[strlen(test_filename) - strlen("test.txt")] = 0;  // Prematurely nul-terminate the filename
+    // syslog_it2(LOG_DEBUG, "AFTER: %s", test_filename);  // DEBUGGING
 
     // 2. Setup environment
     old_umask = umask(0);
@@ -349,6 +352,15 @@ int main(int argc, char *argv[])
             close(pipe_fds[PIPE_WRITE]);
             pipe_fds[PIPE_WRITE] = INVALID_FD;
         }
+        // processed_filename
+        if (processed_filename)
+        {
+            free(processed_filename);
+            processed_filename = NULL;
+        }
+    }
+    else
+    {
         // test_filename
         if (test_filename)
         {
@@ -360,12 +372,6 @@ int main(int argc, char *argv[])
         {
             free(test_content);
             test_content = NULL;
-        }
-        // processed_filename
-        if (processed_filename)
-        {
-            free(processed_filename);
-            processed_filename = NULL;
         }
     }
 
