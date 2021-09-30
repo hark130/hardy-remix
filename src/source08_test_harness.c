@@ -126,7 +126,7 @@ int main(int argc, char *argv[])
 
     // DO IT
     // 1. Read file containing test input
-    log_external(filename);  // DEBUGGING
+    // log_external(filename);  // DEBUGGING
 
     if (1 == check_dir("/ramdisk"))
     {
@@ -192,11 +192,11 @@ int main(int argc, char *argv[])
     // 4. Start the "daemon"
     if (0 == success)
     {
-        log_external("Successfully created the pipes");  // DEBUGGING
-        syslog_it2(LOG_DEBUG, "pipe_fds[PIPE_READ] == %d and pipe_fds[PIPE_WRITE] == %d", pipe_fds[PIPE_READ], pipe_fds[PIPE_WRITE]);  // DEBUGGING
+        // log_external("Successfully created the pipes");  // DEBUGGING
+        // syslog_it2(LOG_DEBUG, "pipe_fds[PIPE_READ] == %d and pipe_fds[PIPE_WRITE] == %d", pipe_fds[PIPE_READ], pipe_fds[PIPE_WRITE]);  // DEBUGGING
         daemon = be_sure(&config);
         // log_external("The call to be_sure() returned");  // DEBUGGING
-        syslog_it2(LOG_DEBUG, "The call to be_sure() returned %d", daemon);  // DEBUGGING
+        // syslog_it2(LOG_DEBUG, "The call to be_sure() returned %d", daemon);  // DEBUGGING
     }
     else
     {
@@ -204,17 +204,17 @@ int main(int argc, char *argv[])
     }
 
     // 5. Attempt file creation
-    syslog_it2(LOG_DEBUG, "Current status is... success: %d, test_filename: %s, daemon: %d", success, test_filename, daemon);  // DEBUGGING
+    // syslog_it2(LOG_DEBUG, "Current status is... success: %d, test_filename: %s, daemon: %d", success, test_filename, daemon);  // DEBUGGING
     if (0 == success && test_filename && 0 < daemon)
     {
         // Create
-        log_external("(PARENT) About to create the file");  // DEBUGGING
+        // log_external("(PARENT) About to create the file");  // DEBUGGING
         // fprintf(stderr, "TEST FILENAME: %s\n", test_filename);  // DEBUGGING
         fd = open(test_filename, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
         if (fd > -1)
         {
             // file_exists = 1;
-            log_external("File exists");  // DEBUGGING
+            // log_external("File exists");  // DEBUGGING
 
             // Get fuzzed content
             // test_content = get_fuzzed_contents("This is my file.\nThere are many like it but this one is mine.\n", &content_size);
@@ -223,23 +223,23 @@ int main(int argc, char *argv[])
 
             if (test_content && content_size > 0)
             {
-                syslog_it2(LOG_DEBUG, "Current status is... fd: %d, test_content: (%p) %s, content size: %zu", fd, test_content, test_content, content_size);  // DEBUGGING
+                // syslog_it2(LOG_DEBUG, "Current status is... fd: %d, test_content: (%p) %s, content size: %zu", fd, test_content, test_content, content_size);  // DEBUGGING
                 // Write
                 if (-1 == write(fd, test_content, content_size))
                 {
                     errnum = errno;
                     syslog_errno(errnum, "Unable to write to %s", test_filename);
-                    log_external("(PARENT) Unable to write file");  // DEBUGGING
+                    // log_external("(PARENT) Unable to write file");  // DEBUGGING
                 }
                 else
                 {
-                    syslog_it2(LOG_DEBUG, "(PARENT) Successfully created and wrote to file %s", test_filename);  // DEBUGGING
+                    // syslog_it2(LOG_DEBUG, "(PARENT) Successfully created and wrote to file %s", test_filename);  // DEBUGGING
                 }
             }
             else
             {
                 log_external("Failed to fuzz content.");
-                log_external("(PARENT) Failed to fuzz content");  // DEBUGGING
+                // log_external("(PARENT) Failed to fuzz content");  // DEBUGGING
             }
 
             // Close
@@ -247,13 +247,13 @@ int main(int argc, char *argv[])
             {
                 errnum = errno;
                 syslog_errno(errnum, "Unable to synchronize %s", test_filename);
-                log_external("(PARENT) Unable to sychronize");  // DEBUGGING
+                // log_external("(PARENT) Unable to sychronize");  // DEBUGGING
             }
             if (close(fd))
             {
                 errnum = errno;
                 syslog_errno(errnum, "Unable to close %s", test_filename);
-                log_external("(PARENT) Unable to close");  // DEBUGGING
+                // log_external("(PARENT) Unable to close");  // DEBUGGING
             }
             fd = -1;
         }
@@ -261,15 +261,15 @@ int main(int argc, char *argv[])
         {
             errnum = errno;
             syslog_errno(errnum, "Unable to make file %s", test_filename);
-            log_external(test_filename);  // DEBUGGING
-            log_external("Failed to create file");  // DEBUGGING
+            // log_external(test_filename);  // DEBUGGING
+            // log_external("Failed to create file");  // DEBUGGING
         }
     }
 
     // 6. Tell the daemon
     if (0 == success && 0 < daemon)
     {
-        log_external("About to call write_a_pipe()");  // DEBUGGING
+        // log_external("About to call write_a_pipe()");  // DEBUGGING
         // char test_msg[] = { "This is a test of the pipe writing system!" };
         // errnum = write_a_pipe(pipe_fds[PIPE_WRITE], test_msg, sizeof(test_msg));
 
@@ -278,11 +278,11 @@ int main(int argc, char *argv[])
         if (errnum)
         {
             fprintf(stderr, "Unable to write to pipe.\nERROR: %s\n", strerror(errnum));
-            log_external("Failed to write to pipe");  // DEBUGGING
+            // log_external("Failed to write to pipe");  // DEBUGGING
         }
         else
         {
-            log_external("The call to write_a_pipe() succeeded");  // DEBUGGING
+            // log_external("The call to write_a_pipe() succeeded");  // DEBUGGING
         }
     }
 
@@ -306,7 +306,7 @@ int main(int argc, char *argv[])
             {
                 errnum = errno;
                 fprintf(stderr, "Unable to delete %s.\nERROR: %s\n", test_filename, strerror(errnum));
-                log_external("Failed to delete file");  // DEBUGGING
+                // log_external("Failed to delete file");  // DEBUGGING
             }
         }
         else
@@ -315,7 +315,7 @@ int main(int argc, char *argv[])
             // Returns 0 on success, -1 on error, -2 if no match found, and errnum on failure
             if (-2 == errnum)
             {
-                syslog_it2(LOG_DEBUG, "No %s match found in %s for the (CHILD) to cleanup", base_filename, config.inotify_config.watched);  // DEBUGGING
+                // syslog_it2(LOG_DEBUG, "No %s match found in %s for the (CHILD) to cleanup", base_filename, config.inotify_config.watched);  // DEBUGGING
             }
             else if (-1 == errnum)
             {
@@ -323,7 +323,7 @@ int main(int argc, char *argv[])
             }
             else if (0 == errnum)
             {
-                syslog_it2(LOG_INFO, "Successfully deleted a file matching %s from within %s", base_filename, config.inotify_config.watched);
+                // syslog_it2(LOG_INFO, "Successfully deleted a file matching %s from within %s", base_filename, config.inotify_config.watched);
             }
             else
             {
@@ -378,15 +378,15 @@ int main(int argc, char *argv[])
     // DEBUGGING RACE CONDITIONS
     if (0 < daemon)
     {
-        log_external("(PARENT) Exiting");
+        syslog_it(LOG_NOTICE, "(PARENT) Exiting");
     }
     else if (0 == daemon)
     {
-        log_external("(CHILD) Exiting");
+        syslog_it(LOG_NOTICE, "(CHILD) Exiting");
     }
     else
     {
-        log_external("HOW DID WE GET HERE?!");
+        syslog_it(LOG_ERR, "HOW DID WE GET HERE?!");
     }
     return success;
 }

@@ -28,6 +28,15 @@
 
 /*
  * Updated version of code grabbed from bsd syslog header. Reflects SURE values.
+ * For reference (from: `man syslog`):
+ *  LOG_EMERG      system is unusable
+ *  LOG_ALERT      action must be taken immediately
+ *  LOG_CRIT       critical conditions
+ *  LOG_ERR        error conditions
+ *  LOG_WARNING    warning conditions
+ *  LOG_NOTICE     normal, but significant, condition
+ *  LOG_INFO       informational message
+ *  LOG_DEBUG      debug-level message
  */
 CODE priorityNames[] =
 {
@@ -118,7 +127,7 @@ pid_t daemonize()
     // Parent (test harness)
     else if (pid > 0)
     {
-        syslog_it(LOG_INFO, "Fork successful");
+        syslog_it(LOG_NOTICE, "(PARENT) Fork successful");
         // syslog_it(LOG_INFO, "(PARENT) Test harness will continue");
         // exit(EXIT_SUCCESS);  // Child process successfully forked
     }
@@ -287,16 +296,16 @@ static int _non_nul_file_match(const char *fpath, const struct stat *sb, int tfl
     {
         if (FTW_F != tflag)
         {
-            syslog_it2(LOG_DEBUG, "Not a file so we're skipping %s", fpath);  // DEBUGGING
+            // syslog_it2(LOG_DEBUG, "Not a file so we're skipping %s", fpath);  // DEBUGGING
         }
         else
         {
             fpath_base = fpath + ftwbuf->base;  // Just the filename
             fpath_base_len = strlen(fpath_base);  // Length of the filename
-            syslog_it2(LOG_DEBUG, "fpath: %s", fpath);  // DEBUGGING
-            syslog_it2(LOG_DEBUG, "fpath_base: %s", fpath_base);  // DEBUGGING
-            syslog_it2(LOG_DEBUG, "fpath_base_len: %zu", fpath_base_len);  // DEBUGGING
-            syslog_it2(LOG_DEBUG, "base_filename: %s", base_filename);
+            // syslog_it2(LOG_DEBUG, "fpath: %s", fpath);  // DEBUGGING
+            // syslog_it2(LOG_DEBUG, "fpath_base: %s", fpath_base);  // DEBUGGING
+            // syslog_it2(LOG_DEBUG, "fpath_base_len: %zu", fpath_base_len);  // DEBUGGING
+            // syslog_it2(LOG_DEBUG, "base_filename: %s", base_filename);
 
             if (fpath_base_len < base_filename_len)
             {
@@ -314,7 +323,7 @@ static int _non_nul_file_match(const char *fpath, const struct stat *sb, int tfl
                     }
                     else
                     {
-                        syslog_it2(LOG_DEBUG, "NON-'nul' processed_filename is %s", processed_filename);  // DEBUGGING
+                        // syslog_it2(LOG_DEBUG, "NON-'nul' processed_filename is %s", processed_filename);  // DEBUGGING
                         results = 1;
                     }
                 }
@@ -368,7 +377,7 @@ static int _nul_file_match(const char *fpath, const struct stat *sb, int tflag, 
     {
         if (FTW_F != tflag)
         {
-            syslog_it2(LOG_DEBUG, "Not a file so we're skipping %s", fpath);  // DEBUGGING
+            // syslog_it2(LOG_DEBUG, "Not a file so we're skipping %s", fpath);  // DEBUGGING
         }
         else
         {
@@ -395,7 +404,7 @@ static int _nul_file_match(const char *fpath, const struct stat *sb, int tflag, 
                     }
                     else
                     {
-                        syslog_it2(LOG_DEBUG, "'nul' processed_filename is %s", processed_filename);  // DEBUGGING
+                        // syslog_it2(LOG_DEBUG, "'nul' processed_filename is %s", processed_filename);  // DEBUGGING
                         results = 1;
                     }
                 }
@@ -476,18 +485,18 @@ int _nul_file_matching(char *dirname, char *filename, size_t filename_len)
     {
         if (NULL != strstr(processed_filename, filename))
         {
-            syslog_it2(LOG_DEBUG, "_nul_file_matching() matched %s in %s with %s",
-                       filename, dirname, processed_filename);
+            // syslog_it2(LOG_DEBUG, "_nul_file_matching() matched %s in %s with %s",
+            //            filename, dirname, processed_filename);  // DEBUGGING
         }
         else
         {
-            syslog_it2(LOG_DEBUG, "Odd that _nul_file_matching() matched %s in %s with %s",
+            syslog_it2(LOG_ERR, "Odd that _nul_file_matching() matched %s in %s with %s",
                        filename, dirname, processed_filename);
         }
     }
     else if (1 == results)
     {
-        syslog_it(LOG_DEBUG, "How can the processed_filename pointer be NULL but nftw() claims a match?!");
+        syslog_it(LOG_ERR, "How can the processed_filename pointer be NULL but nftw() claims a match?!");
         results = -1;  // Can't have a match if the pointer is NULL!
     }
 
@@ -515,18 +524,18 @@ int _non_nul_file_matching(char *dirname, char *filename, size_t filename_len)
     {
         if (NULL != strstr(processed_filename, filename))
         {
-            syslog_it2(LOG_DEBUG, "_non_nul_file_matching() matched %s in %s with %s",
-                       filename, dirname, processed_filename);
+            // syslog_it2(LOG_DEBUG, "_non_nul_file_matching() matched %s in %s with %s",
+            //            filename, dirname, processed_filename);  // DEBUGGING
         }
         else
         {
-            syslog_it2(LOG_DEBUG, "Odd that _non_nul_file_matching() matched %s in %s with %s",
+            syslog_it2(LOG_ERR, "Odd that _non_nul_file_matching() matched %s in %s with %s",
                        filename, dirname, processed_filename);
         }
     }
     else if (1 == results)
     {
-        syslog_it(LOG_DEBUG, "How can the processed_filename pointer be NULL but nftw() claims a match?!");
+        syslog_it(LOG_ERR, "How can the processed_filename pointer be NULL but nftw() claims a match?!");
         results = -1;  // Can't have a match if the pointer is NULL!
     }
 
@@ -610,13 +619,13 @@ pid_t be_sure(Configuration *config)
         daemon = daemonize();
         if (0 == daemon)
         {
-            syslog_it(LOG_DEBUG, "(CHILD) The call to daemonize() returned");  // DEBUGGING
-            syslog_it(LOG_DEBUG, "(CHILD) About to call execute_order()");  // DEBUGGING
+            // syslog_it(LOG_DEBUG, "(CHILD) The call to daemonize() returned");  // DEBUGGING
+            // syslog_it(LOG_DEBUG, "(CHILD) About to call execute_order()");  // DEBUGGING
             execute_order(config);
-            syslog_it(LOG_DEBUG, "(CHILD) The call to execute_order() returned");  // DEBUGGING
-            syslog_it(LOG_DEBUG, "(CHILD) About to call cleanupDaemon()");  // DEBUGGING
+            // syslog_it(LOG_DEBUG, "(CHILD) The call to execute_order() returned");  // DEBUGGING
+            // syslog_it(LOG_DEBUG, "(CHILD) About to call cleanupDaemon()");  // DEBUGGING
             cleanupDaemon();
-            syslog_it(LOG_DEBUG, "(CHILD) The call to cleanupDaemon() returned");  // DEBUGGING
+            // syslog_it(LOG_DEBUG, "(CHILD) The call to cleanupDaemon() returned");  // DEBUGGING
         }
         else if (daemon < 0)
         {
@@ -624,7 +633,7 @@ pid_t be_sure(Configuration *config)
         }
         else
         {
-            syslog_it(LOG_INFO, "(PARENT) Test harness will continue on");
+            // syslog_it(LOG_INFO, "(PARENT) Test harness will continue on");
         }
     }
 
@@ -691,7 +700,7 @@ int delete_matching_file(char *dirname, char *filename, size_t filename_len)
     // DELETE IT
     if (0 == results)
     {
-        syslog_it2(LOG_DEBUG, "We're about to delete %s because it matched!", matched_file);  // DEBUGGING
+        // syslog_it2(LOG_DEBUG, "We're about to delete %s because it matched!", matched_file);  // DEBUGGING
         results = delete_file(matched_file);
     }
 
@@ -713,12 +722,12 @@ void execute_order(Configuration *config)
         // Retrieve the latest data from the message queue
         success = getINotifyData(config);  // TD: DDN... Implement this function with shared pipes between the test harness
         // Returns 0 on success, -1 on error, and errnum on failure
-        syslog_it2(LOG_DEBUG, "Call to getINotifyData() returned %d", success);  // DEBUGGING
+        // syslog_it2(LOG_DEBUG, "Call to getINotifyData() returned %d", success);  // DEBUGGING
         if (0 == success)
         {
             if (config->inotify_message.message.buffer && config->inotify_message.message.size > 0)
             {
-                syslog_it2(LOG_DEBUG, "Main: Received %s", config->inotify_message.message.buffer);
+                // syslog_it2(LOG_DEBUG, "Main: Received %s", config->inotify_message.message.buffer);  // DEBUGGING
                 // Received data, now add it to the jobs queue for the threadpool
                 // thpool_add_work(threadPool, execRunner, allocContext(config, context));
                 success = stamp_a_file(config->inotify_message.message.buffer, config->inotify_config.process);
@@ -731,7 +740,7 @@ void execute_order(Configuration *config)
             else
             {
                 // No data available. Sleep for a brief moment and try again.
-                syslog_it(LOG_DEBUG, "Call to getINotifyData() provided no data.");
+                // syslog_it(LOG_DEBUG, "Call to getINotifyData() provided no data.");  // DEBUGGING
                 sleep(1);
                 // syslog_it(LOG_DEBUG, "Exiting (until the test harness' getINotifyData() is implemented).");  // TD: DDN... remove once getINotifyData() is implemented
                 // break;  // TD: DDN... remove once getINotifyData() is implemented
@@ -825,7 +834,7 @@ int getINotifyData(Configuration *config)
     // GET IT
     if (0 == success)
     {
-        syslog_it(LOG_DEBUG, "About to call read_a_pipe()...");  // DEBUGGING
+        // syslog_it(LOG_DEBUG, "About to call read_a_pipe()...");  // DEBUGGING
         data = read_a_pipe(pipe_fds[PIPE_READ], &msg_len, &errnum);
         // syslog_it(LOG_DEBUG, "The call to read_a_pipe() completed.");  // DEBUGGING
 
@@ -838,7 +847,7 @@ int getINotifyData(Configuration *config)
         {
             // success = EIO;  // Input/output error
             success = ENOERR;  // Apparently, there was nothing to read
-            syslog_it(LOG_INFO, "The call to read_a_pipe() returned NULL without an errno value.");
+            // syslog_it(LOG_INFO, "The call to read_a_pipe() returned NULL without an errno value.");  // DEBUGGING
         }
         else if (0 >= msg_len)
         {
@@ -847,7 +856,7 @@ int getINotifyData(Configuration *config)
         }
         else
         {
-            syslog_it2(LOG_DEBUG, "The call to read_a_pipe() returned %s", data);  // DEBUGGING
+            // syslog_it2(LOG_DEBUG, "The call to read_a_pipe() returned %s", data);  // DEBUGGING
             config->inotify_message.message.buffer = data;
             config->inotify_message.message.size = msg_len;
         }
@@ -909,17 +918,17 @@ int make_pipes(int empty_pipes[2], int flags)
         if (flags)
         {
             #if defined _GNU_SOURCE && defined __USE_GNU
-            syslog_it(LOG_DEBUG, "Calling pipe2()");
+            // syslog_it(LOG_INFO, "Calling pipe2()");
             retval = pipe2(empty_pipes, flags);
             #else
-            syslog_it(LOG_DEBUG, "Calling pipe()");
+            // syslog_it(LOG_INFO, "Calling pipe()");
             retval = pipe(empty_pipes);
             call_fcntl = true;  // There are flags but we're not using pipe2()
             #endif  // _GNU_SOURCE && __USE_GNU
         }
         else
         {
-            syslog_it(LOG_DEBUG, "No flags, calling pipe()");
+            // syslog_it(LOG_INFO, "No flags, calling pipe()");
             retval = pipe(empty_pipes);
         }
 
@@ -1148,27 +1157,27 @@ char *search_dir(char *haystack_dir, char *needle_file, size_t needle_file_len)
     // haystack_dir
     if (!haystack_dir || 0x0 == *haystack_dir)
     {
-        syslog_it(LOG_DEBUG, "Problem with haystack_dir");  // DEBUGGING
+        // syslog_it(LOG_DEBUG, "Problem with haystack_dir");  // DEBUGGING
     }
     else if (1 != verify_directory(haystack_dir))
     {
-        syslog_it2(LOG_DEBUG, "Unable to verify directory: %s", haystack_dir);  // DEBUGGING
+        // syslog_it2(LOG_DEBUG, "Unable to verify directory: %s", haystack_dir);  // DEBUGGING
     }
     // needle_file
     else if (!needle_file || 0x0 == *needle_file)
     {
-        syslog_it(LOG_DEBUG, "Problem with needle_file");  // DEBUGGING
+        // syslog_it(LOG_DEBUG, "Problem with needle_file");  // DEBUGGING
     }
     // needle_file_len
     else if (0 >= needle_file_len)
     {
-        syslog_it2(LOG_DEBUG, "Invalid needle_file_len of %zu", needle_file_len);  // DEBUGGING
+        // syslog_it2(LOG_DEBUG, "Invalid needle_file_len of %zu", needle_file_len);  // DEBUGGING
     }
     // DIR WALK
     else
     {
         // Is there a premature nul-character in needle_file?
-        syslog_it2(LOG_DEBUG, "needle_file_len is %zu and strlen(needle_file) is %zu", needle_file_len, strlen(needle_file));  // DEBUGGING
+        // syslog_it2(LOG_DEBUG, "needle_file_len is %zu and strlen(needle_file) is %zu", needle_file_len, strlen(needle_file));  // DEBUGGING
         if (needle_file_len != strlen(needle_file))
         {
             nul_in_needle = true;
@@ -1234,12 +1243,12 @@ int stamp_a_file(char *source_file, char *dest_dir)
         if (1 != verify_filename(source_file))
         {
             errnum = -1;
-            syslog_it2(LOG_ERR, "Unable to verify source_file: %s", source_file);  // DEBUGGING
+            // syslog_it2(LOG_ERR, "Unable to verify source_file: %s", source_file);  // DEBUGGING
         }
         else if (1 != verify_directory(dest_dir))
         {
             errnum = -1;
-            syslog_it2(LOG_ERR, "Unable to verify dest_dir: %s", dest_dir);  // DEBUGGING
+            // syslog_it2(LOG_ERR, "Unable to verify dest_dir: %s", dest_dir);  // DEBUGGING
         }
     }
 
@@ -1260,14 +1269,14 @@ int stamp_a_file(char *source_file, char *dest_dir)
             dest_len = strlen(dest_dir);
             memcpy(new_filename, datetime_stamp, stamp_len);
             strncat(new_filename, basename(source_file), FILE_MAX - stamp_len);
-            syslog_it2(LOG_DEBUG, "new_filename == %s", new_filename);  // DEBUGGING
+            // syslog_it2(LOG_DEBUG, "new_filename == %s", new_filename);  // DEBUGGING
             memcpy(new_abs_filename, dest_dir, dest_len);
             if ('/' != new_abs_filename[strlen(new_abs_filename) - 1])
             {
                 strncat(new_abs_filename, "/", 2);
             }
             strncat(new_abs_filename, new_filename, FILE_MAX);
-            syslog_it2(LOG_DEBUG, "new_abs_filename == %s", new_abs_filename);  // DEBUGGING
+            // syslog_it2(LOG_DEBUG, "new_abs_filename == %s", new_abs_filename);  // DEBUGGING
 
         }
         // errnum = -1;  // TD: DDN... Implement this function properly
@@ -1506,9 +1515,9 @@ int write_a_pipe(int write_fd, void *write_buff, size_t num_bytes)
     // WRITE
     if (true == success)
     {
-        syslog_it(LOG_DEBUG, "About to call write()");  // DEBUGGING
+        // syslog_it(LOG_DEBUG, "About to call write()");  // DEBUGGING
         write_retval = write(write_fd, write_buff, num_bytes);
-        syslog_it(LOG_DEBUG, "The call to write() returned");  // DEBUGGING
+        // syslog_it(LOG_DEBUG, "The call to write() returned");  // DEBUGGING
 
         if (-1 == write_retval)
         {
@@ -1522,14 +1531,14 @@ int write_a_pipe(int write_fd, void *write_buff, size_t num_bytes)
         }
         else
         {
-            syslog_it(LOG_DEBUG, "The call to write() succeeded");  // DEBUGGING
+            // syslog_it(LOG_DEBUG, "The call to write() succeeded");  // DEBUGGING
         }
     }
 
     // DONE
     if (false == success)
     {
-        syslog_errno(errnum, "Failed to write %zu bytes of %p to file descriptor %d", num_bytes, write_buff, write_fd);  // DEBUGGING
+        // syslog_errno(errnum, "Failed to write %zu bytes of %p to file descriptor %d", num_bytes, write_buff, write_fd);  // DEBUGGING
     }
     return errnum;
 }
