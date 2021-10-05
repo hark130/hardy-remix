@@ -28,21 +28,21 @@ docker run -ti --rm --mount type=tmpfs,destination=/ramdisk -e AFL_TMPDIR=/ramdi
 ##### Base AFL++
 
 ```
-echo -n "some_file.txt" > test/input01/test_input.txt
+echo -n "some_file.txt" > test/afl/input01/test_input.txt
 afl-fuzz -D -i test/afl/input01/ -o test/afl/output01/ dist/source06_bad_AFL.bin @@
 ```
 
 ##### AFL++ w/ Test Harness
 
 ```
-echo -n "some_file.txt" > test/input02/test_input.txt
+echo -n "some_file.txt" > test/afl/input02/test_input.txt
 afl-fuzz -D -i test/afl/input02/ -o test/afl/output02/ dist/source07_test_harness_bad_AFL.bin @@
 ```
 
 ##### AFL++ w/ Test Harness and Sanitizer
 
 ```
-echo -n "some_file.txt" > test/input03/test_input.txt
+echo -n "some_file.txt" > test/afl/input03/test_input.txt
 afl-fuzz -D -i test/afl/input03/ -o test/afl/output03/ dist/source07_test_harness_bad_AFL_ASAN.bin @@
 ```
 
