@@ -52,6 +52,10 @@ CODE priorityNames[] =
    {NULL,        -1},
 };
 
+int pipe_fds[2] = {INVALID_FD, INVALID_FD};  // Intializing global externed variable
+char *base_filename = NULL;                  // Name of the file-based test case created by the test harness
+size_t base_filename_len = 0;                // Length of the base_filename
+char *processed_filename = NULL;             // Absolute filename of a file that matches on base_filename
 
 /*************************************************************************************************/
 /**************************************** LOCAL FUNCTIONS ****************************************/
