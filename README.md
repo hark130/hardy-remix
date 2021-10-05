@@ -2,51 +2,61 @@
 
 ## Hardy Remix (HARE)
 
-An investigation of American Fuzzy Lop++ (AFL) as a fuzzer
+An investigation of three fuzzers: American Fuzzy Lop++ (AFL), Honggfuzz, and Radamsa
 
 <img align="right" src="https://upload.wikimedia.org/wikipedia/commons/a/a4/Conejillo_de_indias.jpg" alt="American Fuzzy Lop">
 
-## Run Tests
+## AFL++
 
-### Build Binaries
+### DOCKER CONTAINERS
 
-`make all`
+AFL++ can be installed natively (which seems like such a pain that I skipped it) or run using their Docker image.  I eventually realized I needed a bit more functionality than was included by default.
 
-### Execute AFL
+#### AFL++ Docker Container
 
-#### AFL++
-
-##### AFL++ Docker Container
+The `docker run` examples in this README will use the `hare_afl` Docker image as the "IMAGE".  The procedures for the base AFL++ Docker image are listed below.
 
 ```
-docker pull aflplusplus/aflplusplus
-docker run -ti --rm --mount type=tmpfs,destination=/ramdisk -e AFL_TMPDIR=/ramdisk -v `pwd`/hardy-remix:/HARE aflplusplus/aflplusplus
+docker pull aflplusplus/aflplusplus:latest  # Just use aflplusplus/aflplusplus as the docker run IMAGE (see: man docker-run)
+docker image list  # Verify you see "aflplusplus/aflplusplus   latest"
 ```
 
-#### Execute AFL++
+#### HARE Docker Container
 
-##### Base AFL++
-
-```
-echo -n "some_file.txt" > test/afl/input01/test_input.txt
-afl-fuzz -D -i test/afl/input01/ -o test/afl/output01/ dist/source06_bad_AFL.bin @@
-```
-
-##### AFL++ w/ Test Harness
+HARE does some things that needs additional functionality and I got tired of repeating these steps manually.  I wrote a Dockerfile to use `aflplusplus/aflplusplus:latest`
 
 ```
-echo -n "some_file.txt" > test/afl/input02/test_input.txt
-afl-fuzz -D -i test/afl/input02/ -o test/afl/output02/ dist/source07_test_harness_bad_AFL.bin @@
+docker build devops/docker/HARE_AFL/ --tag hare_afl:latest  # Just use hare_afl:latest as the docker run IMAGE (see: man docker-run)
+docker image list  # Verify you see "hare_afl                  latest"
 ```
 
-##### AFL++ w/ Test Harness and Sanitizer
+### RUN AFL++
+
+1. From the host OS
 
 ```
-echo -n "some_file.txt" > test/afl/input03/test_input.txt
-afl-fuzz -D -i test/afl/input03/ -o test/afl/output03/ dist/source07_test_harness_bad_AFL_ASAN.bin @@
+# Build the HARE AFL Docker container (see: "HARE Docker Container" above)
+docker run -ti --rm --mount type=tmpfs,destination=/ramdisk -e AFL_TMPDIR=/ramdisk -v `pwd`:/HARE hare_afl:latest  # Start the container
 ```
 
-#### AFL-Utils
+2. From the HARE AFL Docker container
+
+```
+cd /HARE  # Use the hardy-remix directory as the working directory
+make all  # Build *all* the binaries
+mkdir test/afl/input01/  # Input directory with test cases
+mkdir test/afl/output01/  # Output directory for fuzzer findings
+echo -n "some_file.txt" > test/afl/input01/test_input.txt  # Create a test case
+afl-fuzz -D -i test/afl/input01/ -o test/afl/output01/ dist/<BINARY TO FUZZ>.bin @@
+```
+
+3. Watch it run
+
+NOTE:  Regarding `<BINARY TO FUZZ>`... there are multiple binaries to fuzz.  Hopefully, the binaries are obviously named.  The higher the "source??" number, the more mature the code is.  The "source08" code represents the ultimate goal of this research: a "lite" Linux daemon to fuzz.  I recommend focusing on the "test_harness" files.  The "best" binaries should be error/crash/BUG free.  The "bad" binaries should have BUGs for the fuzzer to find.  TLDR... You're probably looking for that matches `source08_test_harness_b*_AFL_*.bin`.
+
+## AFL++ RESOURCES
+
+### AFL-Utils
 
 `afl-collect ../hardy-remix/test/output05_bad ../hardy-remix/test/test_collection/ -- ../hardy-remix/dist/source05_bad.bin @@`
 
@@ -73,9 +83,11 @@ afl-fuzz -D -i test/afl/input03/ -o test/afl/output03/ dist/source07_test_harnes
  * [AFLize](https://github.com/d33tah/aflize) - a tool that automatically generates builds of debian packages suitable for AFL.
  * [afl-fid](https://github.com/FoRTE-Research/afl-fid) - a set of tools for working with input data.
 
-## Test Files
+## HONGGFUZZ
 
-## TEST RESULTS
+## RADAMSA
+
+## HARE TEST FILES
 
 | Filename     | Description                                                              |
 | :----------- | :----------------------------------------------------------------------- |
@@ -86,5 +98,6 @@ afl-fuzz -D -i test/afl/input03/ -o test/afl/output03/ dist/source07_test_harnes
 | source05_*.c | Get filename from argv[1], read, and print it                            |
 | source06_*.c | Get filename from argv[1], read, and print it w/ Sanitizers              |
 | source07_*.c | Get filename from argv[1], read, and print it w/ AFL test harness & ASAN |
+| source08_*.c | Launch a "lite" Linux daemon that moves/renames/logs a given file        |
 
 NOTE: All source files should have a 'bad' and 'best' version.
