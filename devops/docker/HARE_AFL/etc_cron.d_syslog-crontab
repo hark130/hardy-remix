@@ -1,0 +1,1 @@
+@reboot /etc/init.d/rsyslog start
