@@ -23,7 +23,7 @@ docker image list  # Verify you see "aflplusplus/aflplusplus   latest"
 
 #### HARE Docker Container
 
-HARE does some things that needs additional functionality and I got tired of repeating these steps manually.  I wrote a Dockerfile to use `aflplusplus/aflplusplus:latest`
+HARE does some things that needs additional functionality and I got tired of repeating these steps manually.  I wrote a Dockerfile that essentially adds Radamsa and syslog to `aflplusplus/aflplusplus:latest`.
 
 ```
 docker build devops/docker/HARE_AFL/ --tag hare_afl:latest  # Just use hare_afl:latest as the docker run IMAGE (see: man docker-run)
@@ -52,7 +52,7 @@ afl-fuzz -D -i test/afl/input01/ -o test/afl/output01/ dist/<BINARY TO FUZZ>.bin
 
 3. Watch it run
 
-NOTE:  Regarding `<BINARY TO FUZZ>`... there are multiple binaries to fuzz.  Hopefully, the binaries are obviously named.  The higher the "source??" number, the more mature the code is.  The "source08" code represents the ultimate goal of this research: a "lite" Linux daemon to fuzz.  I recommend focusing on the "test_harness" files.  The "best" binaries should be error/crash/BUG free.  The "bad" binaries should have BUGs for the fuzzer to find.  TLDR... You're probably looking for that matches `source08_test_harness_b*_AFL_*.bin`.
+NOTE:  Regarding `<BINARY TO FUZZ>`... there are multiple binaries to fuzz.  Hopefully, the binaries are obviously named.  The higher the "source??" number, the more mature the code is.  The "source08" code represents the ultimate goal of this research: a "lite" Linux daemon to fuzz.  I recommend focusing on the "test_harness" files.  The "best" binaries should be error/crash/BUG free.  The "bad" binaries should have BUGs for the fuzzer to find.  TLDR... You're probably looking for a `dist` binary that matches `source08_test_harness_b*_AFL_*.bin`.
 
 ## AFL++ RESOURCES
 
