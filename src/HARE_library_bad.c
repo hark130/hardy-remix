@@ -175,20 +175,11 @@ void execute_order(Configuration *config)
 }
 
 
-// TD: DDN... Make this different from the "good" version
+// Different than the "good" version
 int move_file(char *source, char *destination)
 {
     // LOCAL VARIABLES
-    int errnum = -1;  // 0 on success, -1 on bad input, errno on failure
-
-    // INPUT VALIDATION
-    if (source && *source && destination && *destination)
-    {
-        if (1 == verify_filename(source) && 0 == verify_directory(destination))
-        {
-            errnum = ENOERR;
-        }
-    }
+    int errnum = ENOERR;  // 0 on success, -1 on bad input, errno on failure
 
     // MOVE IT
     if (0 == errnum)
