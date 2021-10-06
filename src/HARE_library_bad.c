@@ -121,61 +121,6 @@ int do_it(char *filename)
 }
 
 
-// TD: DDN... Make this different from the "good" version
-void execute_order(Configuration *config)
-{
-    // LOCAL VARIABLES
-    int success = 0;  // Holds return value from getInotifyData()
-
-    // EXECUTE ORDER 66
-    // syslog_it(LOG_DEBUG, "Starting execute_order() while loop...");  // DEBUGGING
-    while(1)
-    {
-        // syslog_it(LOG_DEBUG, "Top of the execute_order() while loop...");  // DEBUGGING
-        // Retrieve the latest data from the message queue
-        success = getINotifyData(config);  // TD: DDN... Implement this function with shared pipes between the test harness
-        // Returns 0 on success, -1 on error, and errnum on failure
-        // syslog_it2(LOG_DEBUG, "Call to getINotifyData() returned %d", success);  // DEBUGGING
-        if (0 == success)
-        {
-            if (config->inotify_message.message.buffer && config->inotify_message.message.size > 0)
-            {
-                // syslog_it2(LOG_DEBUG, "Main: Received %s", config->inotify_message.message.buffer);  // DEBUGGING
-                // Received data, now add it to the jobs queue for the threadpool
-                // thpool_add_work(threadPool, execRunner, allocContext(config, context));
-                success = stamp_a_file(config->inotify_message.message.buffer, config->inotify_config.process);
-                if (0 != success)
-                {
-                    syslog_errno(success, "The call to stamp_a_file() failed");
-                }
-                break;
-            }
-            else
-            {
-                // No data available. Sleep for a brief moment and try again.
-                // syslog_it(LOG_DEBUG, "Call to getINotifyData() provided no data.");  // DEBUGGING
-                sleep(1);
-                // syslog_it(LOG_DEBUG, "Exiting (until the test harness' getINotifyData() is implemented).");  // TD: DDN... remove once getINotifyData() is implemented
-                // break;  // TD: DDN... remove once getINotifyData() is implemented
-            }
-        }
-        else
-        {
-            if (0 < success)
-            {
-                syslog_errno(success, "Call to getINotifyData() failed");
-            }
-            else
-            {
-                syslog_it2(LOG_ERR, "Call to getINotifyData() failed with %d.  Exiting.", success);
-            }
-            // Got error. Should we exit?
-            break;  // Yes
-        }
-    }
-}
-
-
 // Different than the "good" version
 int move_file(char *source, char *destination)
 {
