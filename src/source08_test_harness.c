@@ -300,8 +300,9 @@ int main(int argc, char *argv[])
             if (-1 == remove(test_filename))
             {
                 errnum = errno;
-                fprintf(stderr, "Unable to delete %s.\nERROR: %s\n", test_filename, strerror(errnum));
+                // fprintf(stderr, "Unable to delete %s.\nERROR: %s\n", test_filename, strerror(errnum));
                 // log_external("Failed to delete file");  // DEBUGGING
+                // syslog_errno(errnum, "Unable to delete %s", test_filename);
             }
         }
         else
@@ -327,8 +328,28 @@ int main(int argc, char *argv[])
         }
     }
 
-    // Empty processed
-    // TD: DDN...
+    // Empty Directories
+    if (0 == daemon)
+    {
+        // NOTE FROM THE PAST
+        // Manually empty the watched directory if it's important.  Trust me...
+
+        // Empty processed
+        errnum = empty_dir(config.inotify_config.process);
+
+        if (0 == errnum)
+        {
+            syslog_it2(LOG_DEBUG, "Successfully emptied the %s directory", config.inotify_config.process);
+        }
+        else if (-1 == errnum)
+        {
+            syslog_it2(LOG_ERR, "Failed to empty the %s directory", config.inotify_config.process);
+        }
+        else
+        {
+            syslog_errno(errnum, "Failed to empty the %s directory", config.inotify_config.process);
+        }
+    }
 
     // DONE
     // TD: DDN... Should we add a safety check here to forcibly stop the "daemon" if it didn't already quit?
