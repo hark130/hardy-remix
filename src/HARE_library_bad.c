@@ -26,61 +26,31 @@
 /*************************************************************************************************/
 
 
-// TD: DDN... Make this different from the "good" version
+// Different than the "good" version
 pid_t be_sure(Configuration *config)
 {
     // LOCAL VARIABLES
-    int success = true;   // Flow control
     pid_t daemon = -1;    // Return value from daemonize()
 
-    // INPUT VALIDATION
-    // config
-    if (!config)
-    {
-        fprintf(stderr, "NULL Configuration pointer.\n");
-        success = false;
-    }
-    // Configuration.inotify_config
-    else if (NULL == config->inotify_config.watched)
-    {
-        fprintf(stderr, "NULL watched directory.\n");
-        success = false;
-    }
-    else if (NULL == config->inotify_config.process)
-    {
-        fprintf(stderr, "NULL process directory.\n");
-        success = false;
-    }
-
-    // ENVIRONMENT VALIDATION
-    if (false == isRootUser())
-    {
-        fprintf(stderr, "Daemon must be run with root privileges.\n");
-        success = false;
-    }
-
     // BE SURE
-    if (true == success)
+    daemon = daemonize();
+    if (0 == daemon)
     {
-        daemon = daemonize();
-        if (0 == daemon)
-        {
-            // syslog_it(LOG_DEBUG, "(CHILD) The call to daemonize() returned");  // DEBUGGING
-            // syslog_it(LOG_DEBUG, "(CHILD) About to call execute_order()");  // DEBUGGING
-            execute_order(config);
-            // syslog_it(LOG_DEBUG, "(CHILD) The call to execute_order() returned");  // DEBUGGING
-            // syslog_it(LOG_DEBUG, "(CHILD) About to call cleanupDaemon()");  // DEBUGGING
-            cleanupDaemon();
-            // syslog_it(LOG_DEBUG, "(CHILD) The call to cleanupDaemon() returned");  // DEBUGGING
-        }
-        else if (daemon < 0)
-        {
-            syslog_it(LOG_ERR, "Call to daemonize() failed");
-        }
-        else
-        {
-            // syslog_it(LOG_INFO, "(PARENT) Test harness will continue on");
-        }
+        // syslog_it(LOG_DEBUG, "(CHILD) The call to daemonize() returned");  // DEBUGGING
+        // syslog_it(LOG_DEBUG, "(CHILD) About to call execute_order()");  // DEBUGGING
+        execute_order(config);
+        // syslog_it(LOG_DEBUG, "(CHILD) The call to execute_order() returned");  // DEBUGGING
+        // syslog_it(LOG_DEBUG, "(CHILD) About to call cleanupDaemon()");  // DEBUGGING
+        cleanupDaemon();
+        // syslog_it(LOG_DEBUG, "(CHILD) The call to cleanupDaemon() returned");  // DEBUGGING
+    }
+    else if (daemon < 0)
+    {
+        syslog_it(LOG_ERR, "Call to daemonize() failed");
+    }
+    else
+    {
+        // syslog_it(LOG_INFO, "(PARENT) Test harness will continue on");
     }
 
     // DONE
