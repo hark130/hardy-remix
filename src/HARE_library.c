@@ -6,8 +6,6 @@
 #include <errno.h>         // errno
 #include <fcntl.h>         // fcntl(), F_GETFL, F_SETFL
 #include <ftw.h>           // nftw(), FTW macros
-#include <libgen.h>        // basename()
-#include <linux/limits.h>  // PATH_MAX
 #include <stdarg.h>        // va_end(), va_start()
 #include <stdio.h>         // rename(), remove()
 #include <stdlib.h>        // calloc(), free()
@@ -99,79 +97,6 @@ int closeStdStreams()
 
 
 /*
- * Closes all opened streams from daemonize()
- * Copy/paste from SURE
- */
-void cleanupDaemon()
-{
-    // Ignore any errors that might occur
-    closeStdStreams();
-}
-
-
-/*
- * SURE implementation of a standard Linux daemon loader
- * Copy/paste/refactor from SURE
- * Returns PID if parent, 0 if child, -1 on failure
- */
-pid_t daemonize()
-{
-    pid_t pid = 0;  // Process IDentifier
-    pid_t sid = 0;  // Child process session ID
-
-    // Fork off the parent process
-    pid = fork();
-    // Error
-    if (pid < 0)
-    {
-        syslog_errno(errno, "Failure value from fork()");
-        syslog_it(LOG_EMERG, "Failed to fork");
-        exit(EXIT_FAILURE);  // Error
-    }
-    // Parent (test harness)
-    else if (pid > 0)
-    {
-        syslog_it(LOG_NOTICE, "(PARENT) Fork successful");
-        // syslog_it(LOG_INFO, "(PARENT) Test harness will continue");
-        // exit(EXIT_SUCCESS);  // Child process successfully forked
-    }
-    // Child process
-    else
-    {
-        // Child process continues here
-        syslog_it(LOG_NOTICE, "(CHILD) Starting daemon");
-
-        // Change the file mode creation mask
-        // NOTE: This system call always succeeds
-        umask(0);
-
-        // Create a new Session ID for the child process
-        sid = setsid();
-        if (sid < 0)
-        {
-            syslog_errno(errno, "(CHILD) Failure value from setsid()");
-            syslog_it(LOG_EMERG, "(CHILD) Failed to acquire Session ID");
-        }
-        // Change the current working directory
-        else if ((chdir("/")) < 0)
-        {
-            syslog_errno(errno, "(CHILD) Failure value from chdir()");
-            syslog_it(LOG_EMERG, "(CHILD) Failed to change directory");
-        }
-        // Close out the standard file descriptors. A gentleman's agreement
-        // was reached that this function can error and that the main
-        // function will soldier on since it is not a critical error.
-        redirectStdStreams();  // Redirect the standard streams to /dev/null
-
-        // initSignalHandlers();
-    }
-
-    // DONE
-    return pid;
-}
-
-
-/*
  * function: getPriorityString
  * description: Returns the descriptive string for the integer priority
  *
@@ -195,16 +120,6 @@ char *getPriorityString(int priority)
         priorities++;
     }
     return name;
-}
-
-
-/*
- * Tests euid for a value of 0
- * Copy/paste from SURE
- */
-bool isRootUser()
-{
-    return (0 == geteuid());  // This function does not fail
 }
 
 
@@ -257,7 +172,7 @@ bool isRootUser()
  *  Perform input validation on behalf of the _*nul_file_match() functions
  *  Returns -1 on error, 0 otherwise
  */
-int _validate_file_match(const char *fpath, const struct stat *sb, int tflag, struct FTW *ftwbuf)
+int _validate_nftw_callback(const char *fpath, const struct stat *sb, int tflag, struct FTW *ftwbuf)
 {
     // LOCAL VARIABLES
     int results = -1;
@@ -266,6 +181,33 @@ int _validate_file_match(const char *fpath, const struct stat *sb, int tflag, st
     if (fpath && *fpath && sb && ftwbuf)
     {
         results = 0;
+    }
+
+    // DONE
+    return results;
+}
+
+
+/*
+ *  Implements a nftw() callback that deletes all files
+ *  Returns -1 on error, errnum on failure, 0 otherwise (tells nftw() to continue)
+ */
+static int _delete_file(const char *fpath, const struct stat *sb, int tflag, struct FTW *ftwbuf)
+{
+    // LOCAL VARIABLES
+    int results = 0;  // Return value
+
+    // INPUT VALIDATION
+    // Arguments
+    results = _validate_nftw_callback(fpath, sb, tflag, ftwbuf);
+
+    // DO IT
+    if (0 == results)
+    {
+        if (FTW_F == tflag)
+        {
+            results = delete_file((char *)fpath);  // Returns 0 on success, -1 on error, and errnum on failure
+        }
     }
 
     // DONE
@@ -288,7 +230,7 @@ static int _non_nul_file_match(const char *fpath, const struct stat *sb, int tfl
 
     // INPUT VALIDATION
     // Arguments
-    results = _validate_file_match(fpath, sb, tflag, ftwbuf);
+    results = _validate_nftw_callback(fpath, sb, tflag, ftwbuf);
     // Globals
     if (!base_filename || 0 >= base_filename_len)
     {
@@ -369,7 +311,7 @@ static int _nul_file_match(const char *fpath, const struct stat *sb, int tflag, 
 
     // INPUT VALIDATION
     // Arguments
-    results = _validate_file_match(fpath, sb, tflag, ftwbuf);
+    results = _validate_nftw_callback(fpath, sb, tflag, ftwbuf);
     // Globals
     if (!base_filename || 0 >= base_filename_len)
     {
@@ -585,64 +527,67 @@ int redirectStdStreams()
 /*************************************************************************************************/
 
 
-pid_t be_sure(Configuration *config)
+void cleanupDaemon()
 {
-    // LOCAL VARIABLES
-    int success = true;   // Flow control
-    pid_t daemon = -1;    // Return value from daemonize()
+    // Ignore any errors that might occur
+    closeStdStreams();
+}
 
-    // INPUT VALIDATION
-    // config
-    if (!config)
-    {
-        fprintf(stderr, "NULL Configuration pointer.\n");
-        success = false;
-    }
-    // Configuration.inotify_config
-    else if (NULL == config->inotify_config.watched)
-    {
-        fprintf(stderr, "NULL watched directory.\n");
-        success = false;
-    }
-    else if (NULL == config->inotify_config.process)
-    {
-        fprintf(stderr, "NULL process directory.\n");
-        success = false;
-    }
 
-    // ENVIRONMENT VALIDATION
-    if (false == isRootUser())
-    {
-        fprintf(stderr, "Daemon must be run with root privileges.\n");
-        success = false;
-    }
+pid_t daemonize()
+{
+    pid_t pid = 0;  // Process IDentifier
+    pid_t sid = 0;  // Child process session ID
 
-    // BE SURE
-    if (true == success)
+    // Fork off the parent process
+    pid = fork();
+    // Error
+    if (pid < 0)
     {
-        daemon = daemonize();
-        if (0 == daemon)
+        syslog_errno(errno, "Failure value from fork()");
+        syslog_it(LOG_EMERG, "Failed to fork");
+        exit(EXIT_FAILURE);  // Error
+    }
+    // Parent (test harness)
+    else if (pid > 0)
+    {
+        syslog_it(LOG_NOTICE, "(PARENT) Fork successful");
+        // syslog_it(LOG_INFO, "(PARENT) Test harness will continue");
+        // exit(EXIT_SUCCESS);  // Child process successfully forked
+    }
+    // Child process
+    else
+    {
+        // Child process continues here
+        syslog_it(LOG_NOTICE, "(CHILD) Starting daemon");
+
+        // Change the file mode creation mask
+        // NOTE: This system call always succeeds
+        umask(0);
+
+        // Create a new Session ID for the child process
+        sid = setsid();
+        if (sid < 0)
         {
-            // syslog_it(LOG_DEBUG, "(CHILD) The call to daemonize() returned");  // DEBUGGING
-            // syslog_it(LOG_DEBUG, "(CHILD) About to call execute_order()");  // DEBUGGING
-            execute_order(config);
-            // syslog_it(LOG_DEBUG, "(CHILD) The call to execute_order() returned");  // DEBUGGING
-            // syslog_it(LOG_DEBUG, "(CHILD) About to call cleanupDaemon()");  // DEBUGGING
-            cleanupDaemon();
-            // syslog_it(LOG_DEBUG, "(CHILD) The call to cleanupDaemon() returned");  // DEBUGGING
+            syslog_errno(errno, "(CHILD) Failure value from setsid()");
+            syslog_it(LOG_EMERG, "(CHILD) Failed to acquire Session ID");
         }
-        else if (daemon < 0)
+        // Change the current working directory
+        else if ((chdir("/")) < 0)
         {
-            syslog_it(LOG_ERR, "Call to daemonize() failed");
+            syslog_errno(errno, "(CHILD) Failure value from chdir()");
+            syslog_it(LOG_EMERG, "(CHILD) Failed to change directory");
         }
-        else
-        {
-            // syslog_it(LOG_INFO, "(PARENT) Test harness will continue on");
-        }
+        // Close out the standard file descriptors. A gentleman's agreement
+        // was reached that this function can error and that the main
+        // function will soldier on since it is not a critical error.
+        redirectStdStreams();  // Redirect the standard streams to /dev/null
+
+        // initSignalHandlers();
     }
 
     // DONE
-    return daemon;
+    return pid;
 }
 
 
@@ -713,57 +658,32 @@ int delete_matching_file(char *dirname, char *filename, size_t filename_len)
 }
 
 
-void execute_order(Configuration *config)
+int empty_dir(char *dirname)
 {
     // LOCAL VARIABLES
-    int success = 0;  // Holds return value from getInotifyData()
+    int success = verify_directory(dirname);  // 0 on success, -1 on error, and errnum on failure
+    int flags = FTW_DEPTH | FTW_PHYS;         // See: man nftw
 
-    // EXECUTE ORDER 66
-    // syslog_it(LOG_DEBUG, "Starting execute_order() while loop...");  // DEBUGGING
-    while(1)
+    // INPUT VALIDATION
+    // verify_directory() return values: 1 exists, 0 missing, -1 error
+    if (0 == success)
     {
-        // syslog_it(LOG_DEBUG, "Top of the execute_order() while loop...");  // DEBUGGING
-        // Retrieve the latest data from the message queue
-        success = getINotifyData(config);  // TD: DDN... Implement this function with shared pipes between the test harness
-        // Returns 0 on success, -1 on error, and errnum on failure
-        // syslog_it2(LOG_DEBUG, "Call to getINotifyData() returned %d", success);  // DEBUGGING
-        if (0 == success)
-        {
-            if (config->inotify_message.message.buffer && config->inotify_message.message.size > 0)
-            {
-                // syslog_it2(LOG_DEBUG, "Main: Received %s", config->inotify_message.message.buffer);  // DEBUGGING
-                // Received data, now add it to the jobs queue for the threadpool
-                // thpool_add_work(threadPool, execRunner, allocContext(config, context));
-                success = stamp_a_file(config->inotify_message.message.buffer, config->inotify_config.process);
-                if (0 != success)
-                {
-                    syslog_errno(success, "The call to stamp_a_file() failed");
-                }
-                break;
-            }
-            else
-            {
-                // No data available. Sleep for a brief moment and try again.
-                // syslog_it(LOG_DEBUG, "Call to getINotifyData() provided no data.");  // DEBUGGING
-                sleep(1);
-                // syslog_it(LOG_DEBUG, "Exiting (until the test harness' getINotifyData() is implemented).");  // TD: DDN... remove once getINotifyData() is implemented
-                // break;  // TD: DDN... remove once getINotifyData() is implemented
-            }
-        }
-        else
-        {
-            if (0 < success)
-            {
-                syslog_errno(success, "Call to getINotifyData() failed");
-            }
-            else
-            {
-                syslog_it2(LOG_ERR, "Call to getINotifyData() failed with %d.  Exiting.", success);
-            }
-            // Got error. Should we exit?
-            break;  // Yes
-        }
+        success = -1;  // Missing dirname counts as an error
     }
+    else if (1 == success)
+    {
+        success = 0;  // Existing dirname counts as success (so far)
+    }
+    // An error while verifying dirname counts as an error so the obvious else condition falls through
+
+    // EMPTY DIR
+    if (0 == success)
+    {
+        success = nftw(dirname, _delete_file, 1, flags);
+    }
+
+    // DONE
+    return success;
 }
 
 
@@ -868,6 +788,12 @@ int getINotifyData(Configuration *config)
 
     // DONE
     return success;
+}
+
+
+bool isRootUser()
+{
+    return (0 == geteuid());  // This function does not fail
 }
 
 
@@ -976,36 +902,6 @@ int make_pipes(int empty_pipes[2], int flags)
 
     // DONE
     return success;
-}
-
-
-int move_file(char *source, char *destination)
-{
-    // LOCAL VARIABLES
-    int errnum = -1;  // 0 on success, -1 on bad input, errno on failure
-
-    // INPUT VALIDATION
-    if (source && *source && destination && *destination)
-    {
-        if (1 == verify_filename(source) && 0 == verify_directory(destination))
-        {
-            errnum = ENOERR;
-        }
-    }
-
-    // MOVE IT
-    if (0 == errnum)
-    {
-        errnum = rename(source, destination);
-
-        if (-1 == errnum)
-        {
-            errnum = errno;
-        }
-    }
-
-    // DONE
-    return errnum;
 }
 
 
@@ -1224,94 +1120,6 @@ off_t size_file(char *filename)
 
     // DONE
     return size;
-}
-
-
-int stamp_a_file(char *source_file, char *dest_dir)
-{
-    // LOCAL VARIABLES
-    int errnum = -1;                              // 0 on success, -1 on bad input, errno on failure
-    char *datetime_stamp = NULL;                  // Store the datetime stamp here
-    char new_filename[FILE_MAX + 1] = { 0 };      // New stamped filename
-    char new_abs_filename[PATH_MAX + 1] = { 0 };  // Concatenated dest_dir and new_filename
-    size_t stamp_len = 0;                         // Length of datetime_stamp
-    size_t dest_len = 0;                          // Length of dest_dir
-
-    // INPUT VALIDATION
-    // Arguments
-    if (source_file && *source_file && dest_dir && *dest_dir)
-    {
-        errnum = 0;
-
-        // Environment
-        if (1 != verify_filename(source_file))
-        {
-            errnum = -1;
-            // syslog_it2(LOG_ERR, "Unable to verify source_file: %s", source_file);  // DEBUGGING
-        }
-        else if (1 != verify_directory(dest_dir))
-        {
-            errnum = -1;
-            // syslog_it2(LOG_ERR, "Unable to verify dest_dir: %s", dest_dir);  // DEBUGGING
-        }
-    }
-
-    // DO IT
-    if (0 == errnum)
-    {
-        // Get datetime stamp
-        datetime_stamp = get_datetime_stamp(&errnum);
-
-        if (!datetime_stamp || ENOERR != errnum)
-        {
-            syslog_errno(errnum, "Call to get_datetime_stamp() failed");
-        }
-        else
-        {
-            // Form new destination filename
-            stamp_len = strlen(datetime_stamp);
-            dest_len = strlen(dest_dir);
-            memcpy(new_filename, datetime_stamp, stamp_len);
-            strncat(new_filename, basename(source_file), FILE_MAX - stamp_len);
-            // syslog_it2(LOG_DEBUG, "new_filename == %s", new_filename);  // DEBUGGING
-            memcpy(new_abs_filename, dest_dir, dest_len);
-            if ('/' != new_abs_filename[strlen(new_abs_filename) - 1])
-            {
-                strncat(new_abs_filename, "/", 2);
-            }
-            strncat(new_abs_filename, new_filename, FILE_MAX);
-            // syslog_it2(LOG_DEBUG, "new_abs_filename == %s", new_abs_filename);  // DEBUGGING
-
-        }
-        // errnum = -1;  // TD: DDN... Implement this function properly
-    }
-    // Move the file
-    if (0 == errnum)
-    {
-        errnum = move_file(source_file, new_abs_filename);
-        if (0 == errnum)
-        {
-            syslog_it2(LOG_INFO, "Successfully renamed %s to %s", source_file, new_abs_filename);
-        }
-        else if (-1 == errnum)
-        {
-            syslog_it(LOG_ERR, "The call to move_file() failed with bad input");
-        }
-        else
-        {
-            syslog_errno(errnum, "The call to move_file() failed");
-        }
-    }
-
-    // CLEANUP
-    if (datetime_stamp)
-    {
-        free(datetime_stamp);
-        datetime_stamp = NULL;
-    }
-
-    // DONE
-    return errnum;
 }
 
 

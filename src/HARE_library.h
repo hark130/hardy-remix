@@ -68,6 +68,21 @@ pid_t be_sure(Configuration *config);
 
 
 /*
+ * Closes all opened streams from daemonize()
+ * Copy/paste from SURE
+ */
+void cleanupDaemon();
+
+
+/*
+ * SURE implementation of a standard Linux daemon loader
+ * Copy/paste/refactor from SURE
+ * Returns PID if parent, 0 if child, -1 on failure
+ */
+pid_t daemonize();
+
+
+/*
  *  Delete filename
  *  Returns 0 on success, -1 on error, and errnum on failure
  */
@@ -85,6 +100,13 @@ int delete_matching_file(char *dirname, char *filename, size_t filename_len);
  *  Verify, read, and print contents of filename
  */
 int do_it(char *filename);
+
+
+/*
+ *  Delete all filenames found in dirname
+ *  Returns 0 on success, -1 on error, and errnum on failure
+ */
+int empty_dir(char *dirname);
 
 
 /*
@@ -113,6 +135,13 @@ char *get_filename(int argc, char *argv[]);
  *      Returns 0 even if there's no data to read
  */
 int getINotifyData(Configuration *config);
+
+
+/*
+ * Tests euid for a value of 0
+ * Copy/paste from SURE
+ */
+bool isRootUser();
 
 
 /*
