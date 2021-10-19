@@ -172,49 +172,68 @@ char *read_file(char *filename)
 
 
 // Different than the "good" version
-int stamp_a_file(char *source_file, char *dest_dir)
-{
-    // LOCAL VARIABLES
-    int errnum = ENOERR;                          // 0 on success, -1 on bad input, errno on failure
-    char *datetime_stamp = NULL;                  // Store the datetime stamp here
-    char new_filename[BAD_MAX + 1] = { 0 };      // New stamped filename
-    char new_abs_filename[BAD_MAX + 1] = { 0 };  // Concatenated dest_dir and new_filename
+// int stamp_a_file(char *source_file, char *dest_dir)
+// {
+//     // LOCAL VARIABLES
+//     int errnum = ENOERR;                         // 0 on success, -1 on bad input, errno on failure
+//     char *datetime_stamp = NULL;                 // Store the datetime stamp here
+//     char *base_source_filename = NULL;           // basename(source_file)
+//     char new_filename[BAD_MAX + 1] = { 0 };      // New stamped filename
+//     char new_abs_filename[BAD_MAX + 1] = { 0 };  // Concatenated dest_dir and new_filename
 
-    // DO IT
-    // 1. Get datetime stamp
-    datetime_stamp = get_datetime_stamp(&errnum);
+//     // DO IT
+//     // 1. Get datetime stamp
+//     datetime_stamp = get_datetime_stamp(&errnum);
 
-    // 2. Form new destination filename
-    strcpy(new_filename, datetime_stamp);
-    strcat(new_filename, basename(source_file));
-    // syslog_it2(LOG_DEBUG, "new_filename == %s", new_filename);  // DEBUGGING
-    strcpy(new_abs_filename, dest_dir);
-    if ('/' != new_abs_filename[strlen(new_abs_filename) - 1])
-    {
-        strncat(new_abs_filename, "/", 2);
-    }
-    strcat(new_abs_filename, new_filename);
-    // syslog_it2(LOG_DEBUG, "new_abs_filename == %s", new_abs_filename);  // DEBUGGING
+//     // 2. Form new destination filename
+//     // strcpy(new_filename, datetime_stamp);
+//     // strcat(new_filename, basename(source_file));
+//     // // syslog_it2(LOG_DEBUG, "new_filename == %s", new_filename);  // DEBUGGING
+//     // strcpy(new_abs_filename, dest_dir);
+//     // if ('/' != new_abs_filename[strlen(new_abs_filename) - 1])
+//     // {
+//     //     strncat(new_abs_filename, "/", 2);
+//     // }
+//     // strcat(new_abs_filename, new_filename);
+//     // syslog_it2(LOG_DEBUG, "new_abs_filename == %s", new_abs_filename);  // DEBUGGING
 
-    // 3. Move the file
-    errnum = move_file(source_file, new_abs_filename);
-    if (0 == errnum)
-    {
-        syslog_it2(LOG_INFO, "Successfully renamed %s to %s", source_file, new_abs_filename);
-    }
-    else if (-1 == errnum)
-    {
-        syslog_it(LOG_ERR, "The call to move_file() failed with bad input");
-    }
-    else
-    {
-        syslog_errno(errnum, "The call to move_file() failed");
-    }
+//     memcpy(new_filename, datetime_stamp, strlen(datetime_stamp));
+//     base_source_filename = basename(source_file);
+//     memcpy(new_filename + strlen(new_filename), base_source_filename, strlen(base_source_filename));
+//     syslog_it2(LOG_DEBUG, "The new filename is %s", new_filename);  // DEBUGGING
+//     memcpy(new_abs_filename, dest_dir, strlen(dest_dir));
+//     if ('/' != new_abs_filename[strlen(new_abs_filename) - 1])
+//     {
+//         strncat(new_abs_filename, "/", 2);
+//     }
+//     memcpy(new_abs_filename + strlen(new_abs_filename), new_filename, strlen(new_filename));
+//     syslog_it2(LOG_DEBUG, "The new absolute filename is %s", new_abs_filename);  // DEBUGGING
 
-    // CLEANUP
-    free(datetime_stamp);
-    datetime_stamp = NULL;
+//     // 3. Move the file
+//     errnum = move_file(source_file, new_abs_filename);
+//     if (0 == errnum)
+//     {
+//         syslog_it2(LOG_INFO, "Successfully renamed %s to %s", source_file, new_abs_filename);
+//     }
+//     else if (-1 == errnum)
+//     {
+//         syslog_it(LOG_ERR, "The call to move_file() failed with bad input");
+//     }
+//     else
+//     {
+//         syslog_errno(errnum, "The call to move_file() failed");
+//     }
 
-    // DONE
-    return errnum;
-}
+//     // CLEANUP
+//     if (datetime_stamp)
+//     {
+//         syslog_it2(LOG_DEBUG, "stamp_a_file() is about to free() the datetime_stamp (%p)", datetime_stamp);  // DEBUGGING
+//         free(datetime_stamp);
+//         datetime_stamp = NULL;
+//         syslog_it(LOG_DEBUG, "stamp_a_file() free()'d the datetime_stamp");  // DEBUGGING
+//     }
+
+//     // DONE
+//     syslog_it2(LOG_DEBUG, "stamp_a_file() is about to return %d", errnum);  // DEBUGGING
+//     return errnum;
+// }
