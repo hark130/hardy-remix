@@ -210,6 +210,7 @@ int main(int argc, char *argv[])
         {
             // file_exists = 1;
             // log_external("File exists");  // DEBUGGING
+            // syslog_it2(LOG_DEBUG, "File %s exists on file descriptor %d", test_filename, fd);  // DEBUGGING
 
             // Get fuzzed content
             // test_content = get_fuzzed_contents("This is my file.\nThere are many like it but this one is mine.\n", &content_size);
@@ -284,6 +285,20 @@ int main(int argc, char *argv[])
     // 6. Test results
     if (0 == success && 0 < daemon)
     {
+        // WAIT FOR THE DAEMON TO EXIT
+        errnum = wait_daemon(daemon, &success);
+        if (-1 == errnum)
+        {
+            syslog_it2(LOG_ERR, "Call to wait_daemon(%ld) failed with an unspecified error", daemon);
+        }
+        else if (0 < errnum)
+        {
+            syslog_errno(errnum, "Call to wait_daemon(%ld) failed", daemon);
+        }
+        else
+        {
+            syslog_it2(LOG_INFO, "Call to wait_daemon(%ld) succeeded.  Daemon exited with %d.", daemon, success);
+        }
         // Was it processed?
         // Any errors detected among the syslog entries
         // Did the "daemon" crash
@@ -353,6 +368,7 @@ int main(int argc, char *argv[])
 
     // DONE
     // TD: DDN... Should we add a safety check here to forcibly stop the "daemon" if it didn't already quit?
+    // Child Process Cleanup
     if (0 == daemon)
     {
         // Restore umask
@@ -375,20 +391,26 @@ int main(int argc, char *argv[])
             processed_filename = NULL;
         }
     }
+    // Parent Cleanup
     else
     {
-        // test_filename
-        if (test_filename)
-        {
-            free(test_filename);
-            test_filename = NULL;
-        }
         // test_content
         if (test_content)
         {
             free(test_content);
             test_content = NULL;
         }
+    }
+    // EVERYBODY
+    // PRO TIP: Since test_filename gets allocated *before* the call to fork(), the child process
+    //  gets a *copy* of the heap memory... not *access* to the parent processes memory.
+    //  That means that both the parent and the child process need to free this address.
+    //  Don't like it?  Use the exec family of calls instead.
+    // test_filename
+    if (test_filename)
+    {
+        free(test_filename);
+        test_filename = NULL;
     }
 
     // DEBUGGING RACE CONDITIONS
