@@ -6,6 +6,8 @@
 #include <errno.h>         // errno
 #include <fcntl.h>         // fcntl(), F_GETFL, F_SETFL
 #include <ftw.h>           // nftw(), FTW macros
+#include <libgen.h>        // basename()
+#include <linux/limits.h>  // PATH_MAX
 #include <stdarg.h>        // va_end(), va_start()
 #include <stdio.h>         // rename(), remove()
 #include <stdlib.h>        // calloc(), free()
@@ -14,6 +16,7 @@
 #include <sys/stat.h>      // stat()
 #include <time.h>          // localtime(), time_t
 #include <unistd.h>        // close(), read()
+#include <sys/wait.h>      // waitpid(), W* macros
 #include "HARE_library.h"  // be_sure(), Configuration
 
 // An arbitrarily large maximum log message size has been chosen in an attempt to accommodate
@@ -709,10 +712,17 @@ void execute_order(Configuration *config)
                 // Received data, now add it to the jobs queue for the threadpool
                 // thpool_add_work(threadPool, execRunner, allocContext(config, context));
                 success = stamp_a_file(config->inotify_message.message.buffer, config->inotify_config.process);
+                // syslog_it2(LOG_DEBUG, "The call to stamp_a_file() returned %d.", success);  // DEBUGGING
                 if (0 != success)
                 {
                     syslog_errno(success, "The call to stamp_a_file() failed");
                 }
+                // syslog_it(LOG_DEBUG, "The call to stamp_a_file() returned");  // DEBUGGING
+
+                // Cleanup
+                free(config->inotify_message.message.buffer);
+                config->inotify_message.message.buffer = NULL;
+                config->inotify_message.message.size = 0;
                 break;
             }
             else
@@ -815,6 +825,7 @@ int getINotifyData(Configuration *config)
         // syslog_it(LOG_DEBUG, "About to call read_a_pipe()...");  // DEBUGGING
         data = read_a_pipe(pipe_fds[PIPE_READ], &msg_len, &errnum);
         // syslog_it(LOG_DEBUG, "The call to read_a_pipe() completed.");  // DEBUGGING
+        // syslog_it2(LOG_DEBUG, "The untested call to read_a_pipe() returned %s", data);  // DEBUGGING
 
         if (errnum)
         {
@@ -1177,6 +1188,94 @@ off_t size_file(char *filename)
 }
 
 
+int stamp_a_file(char *source_file, char *dest_dir)
+{
+    // LOCAL VARIABLES
+    int errnum = -1;                              // 0 on success, -1 on bad input, errno on failure
+    char *datetime_stamp = NULL;                  // Store the datetime stamp here
+    char new_filename[FILE_MAX + 1] = { 0 };      // New stamped filename
+    char new_abs_filename[PATH_MAX + 1] = { 0 };  // Concatenated dest_dir and new_filename
+    size_t stamp_len = 0;                         // Length of datetime_stamp
+    size_t dest_len = 0;                          // Length of dest_dir
+
+    // INPUT VALIDATION
+    // Arguments
+    if (source_file && *source_file && dest_dir && *dest_dir)
+    {
+        errnum = 0;
+
+        // Environment
+        if (1 != verify_filename(source_file))
+        {
+            errnum = -1;
+            // syslog_it2(LOG_ERR, "Unable to verify source_file: %s", source_file);  // DEBUGGING
+        }
+        else if (1 != verify_directory(dest_dir))
+        {
+            errnum = -1;
+            // syslog_it2(LOG_ERR, "Unable to verify dest_dir: %s", dest_dir);  // DEBUGGING
+        }
+    }
+
+    // DO IT
+    if (0 == errnum)
+    {
+        // Get datetime stamp
+        datetime_stamp = get_datetime_stamp(&errnum);
+
+        if (!datetime_stamp || ENOERR != errnum)
+        {
+            syslog_errno(errnum, "Call to get_datetime_stamp() failed");
+        }
+        else
+        {
+            // Form new destination filename
+            stamp_len = strlen(datetime_stamp);
+            dest_len = strlen(dest_dir);
+            memcpy(new_filename, datetime_stamp, stamp_len);
+            strncat(new_filename, basename(source_file), FILE_MAX - stamp_len);
+            // syslog_it2(LOG_DEBUG, "new_filename == %s", new_filename);  // DEBUGGING
+            memcpy(new_abs_filename, dest_dir, dest_len);
+            if ('/' != new_abs_filename[strlen(new_abs_filename) - 1])
+            {
+                strncat(new_abs_filename, "/", 2);
+            }
+            strncat(new_abs_filename, new_filename, FILE_MAX);
+            // syslog_it2(LOG_DEBUG, "new_abs_filename == %s", new_abs_filename);  // DEBUGGING
+
+        }
+        // errnum = -1;  // TD: DDN... Implement this function properly
+    }
+    // Move the file
+    if (0 == errnum)
+    {
+        errnum = move_file(source_file, new_abs_filename);
+        if (0 == errnum)
+        {
+            syslog_it2(LOG_INFO, "Successfully renamed %s to %s", source_file, new_abs_filename);
+        }
+        else if (-1 == errnum)
+        {
+            syslog_it(LOG_ERR, "The call to move_file() failed with bad input");
+        }
+        else
+        {
+            syslog_errno(errnum, "The call to move_file() failed");
+        }
+    }
+
+    // CLEANUP
+    if (datetime_stamp)
+    {
+        free(datetime_stamp);
+        datetime_stamp = NULL;
+    }
+
+    // DONE
+    return errnum;
+}
+
+
 void syslog_it(int logLevel, char *msg)
 {
     openlog(BINARY_NAME, LOG_PID, LOG_DAEMON);                        // System call returns void
@@ -1329,6 +1428,84 @@ int verify_filename(char *filename)
 
     // DONE
     return exists;
+}
+
+
+int wait_daemon(pid_t daemon_pid, int *daemon_exit)
+{
+    // LOCAL VARIABLES
+    int success = 0;        // 0 on success, -1 on error, or errno
+    int wait_status = 0;    // Out parameter for the call to waitpid()
+    int wait_options = 0;   // Argument to waitpid()
+    pid_t wait_retval = 0;  // Return value from the call to waitpid()
+
+    // WAIT
+    if (daemon_exit)
+    {
+        wait_options = WUNTRACED | WCONTINUED;
+        *daemon_exit = 0;
+        do
+        {
+            wait_retval = waitpid(daemon_pid, &wait_status, wait_options);
+
+            if (-1 == wait_retval)
+            {
+                if (errno)
+                {
+                    success = errno;
+                    syslog_errno(success, "The call to waitpid(%ld) failed", daemon_pid);
+                }
+                else
+                {
+                    success = -1;
+                    syslog_errno(success, "The call to waitpid(%ld) failed with an unspecified error", daemon_pid);
+                }
+                break;  // Error encountered.  Time to exit.
+            }
+            else
+            {
+                // Test return value
+                if (0 == wait_retval)
+                {
+                    syslog_it2(LOG_DEBUG, "PID %ld has not yet changed state", daemon_pid);  // DEBUGGING
+                }
+                else
+                {
+                    syslog_it2(LOG_DEBUG, "PID %ld has changed state", daemon_pid);  // DEBUGGING
+                }
+
+                // Test status
+                // WIFEXITED
+                if (WIFEXITED(wait_status))
+                {
+                    *daemon_exit = WEXITSTATUS(wait_status);
+                    syslog_it2(LOG_DEBUG, "PID %ld has exited with status %d", daemon_pid, *daemon_exit);  // DEBUGGING
+                }
+                // WIFSIGNALED
+                if (WIFSIGNALED(wait_status))
+                {
+                    syslog_it2(LOG_DEBUG, "PID %ld was killed by signal %d", daemon_pid, WTERMSIG(wait_status));  // DEBUGGING
+                }
+                // WIFSTOPPED
+                if (WIFSTOPPED(wait_status))
+                {
+                    syslog_it2(LOG_DEBUG, "PID %ld was stopped by signal %d", daemon_pid, WSTOPSIG(wait_status));  // DEBUGGING
+                }
+                // WIFCONTINUED
+                if (WIFCONTINUED(wait_status))
+                {
+                    syslog_it2(LOG_DEBUG, "PID %ld continued", daemon_pid);  // DEBUGGING
+                }
+            }
+        } while (!WIFEXITED(wait_status) && !WIFSIGNALED(wait_status));
+    }
+    else
+    {
+        success = -1;  // NULL Pointer
+    }
+
+    // DONE
+    return success;
 }
 
 
