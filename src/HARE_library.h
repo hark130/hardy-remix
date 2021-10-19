@@ -283,6 +283,13 @@ int verify_pathname(char *pathname);
 
 
 /*
+ *  Wait for the PID to change state and provide the exit code if applicable
+ *  Returns 0 on success, -1 on error, or errno
+ */
+int wait_daemon(pid_t daemon_pid, int *daemon_exit);
+
+
+/*
  *  Write "num_bytes" worth of "write_buff" into the "write_fd" file descriptor
  *  Arguments
  *      write_fd - The pipe's write file descriptor
