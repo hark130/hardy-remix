@@ -113,7 +113,7 @@ int main(int argc, char *argv[])
     char *test_content = NULL;     // Fuzzed test file contents
     size_t content_size = 0;       // Readable size of test_content
     int fd = 0;                    // Filename's file descriptor
-    // int file_exists = 0;           // Makeshift boolean to track file creation
+    int file_exists = 0;           // Makeshift boolean to track file creation
     int errnum = 0;                // Store errno values
     Configuration config = { 0 };  // Pass to be_sure()
     mode_t old_umask = 0;          // Store umask() value here and restore it
@@ -152,7 +152,7 @@ int main(int argc, char *argv[])
         if (0 != mkdir(config.inotify_config.watched, S_IRWXU | S_IRWXG | S_IRWXO))
         {
             errnum = errno;
-            syslog_errno(errnum, "Failed to create watch directory");
+            syslog_errno(errnum, "(TEST HARNESS) Failed to create watch directory");
         }
     }
     if (0 == check_dir(config.inotify_config.process))
@@ -160,7 +160,7 @@ int main(int argc, char *argv[])
         if (0 != mkdir(config.inotify_config.process, S_IRWXU | S_IRWXG | S_IRWXO))
         {
             errnum = errno;
-            syslog_errno(errnum, "Failed to create process directory");
+            syslog_errno(errnum, "(TEST HARNESS) Failed to create process directory");
         }
     }
 
@@ -183,24 +183,25 @@ int main(int argc, char *argv[])
     //         log_external("The call to write_a_pipe(DEBUG MESSAGE) succeeded");  // DEBUGGING
     //     }
     // }
+    if (0 != success)
+    {
+        syslog_errno(errnum, "(TEST HARNESS) Failed to make the pipes");
+    }
 
-    // 4. Start the "daemon"
-    if (0 == success)
-    {
-        // log_external("Successfully created the pipes");  // DEBUGGING
-        // syslog_it2(LOG_DEBUG, "pipe_fds[PIPE_READ] == %d and pipe_fds[PIPE_WRITE] == %d", pipe_fds[PIPE_READ], pipe_fds[PIPE_WRITE]);  // DEBUGGING
-        daemon = be_sure(&config);
-        // log_external("The call to be_sure() returned");  // DEBUGGING
-        // syslog_it2(LOG_DEBUG, "The call to be_sure() returned %d", daemon);  // DEBUGGING
-    }
-    else
-    {
-        syslog_errno(errnum, "Failed to make the pipes");
-    }
+    // // 4. Start the "daemon"
+    // if (0 == success)
+    // {
+    //     // log_external("Successfully created the pipes");  // DEBUGGING
+    //     // syslog_it2(LOG_DEBUG, "pipe_fds[PIPE_READ] == %d and pipe_fds[PIPE_WRITE] == %d", pipe_fds[PIPE_READ], pipe_fds[PIPE_WRITE]);  // DEBUGGING
+    //     daemon = be_sure(&config);
+    //     // log_external("The call to be_sure() returned");  // DEBUGGING
+    //     // syslog_it2(LOG_DEBUG, "The call to be_sure() returned %d", daemon);  // DEBUGGING
+    // }
 
     // 5. Attempt file creation
     // syslog_it2(LOG_DEBUG, "Current status is... success: %d, test_filename: %s, daemon: %d", success, test_filename, daemon);  // DEBUGGING
-    if (0 == success && test_filename && 0 < daemon)
+    if (0 == success && test_filename)
+    // if (0 == success && test_filename && 0 < daemon)
     {
         // Create
         // log_external("(PARENT) About to create the file");  // DEBUGGING
@@ -208,14 +209,14 @@ int main(int argc, char *argv[])
         fd = open(test_filename, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
         if (fd > -1)
         {
-            // file_exists = 1;
+            file_exists = 1;
             // log_external("File exists");  // DEBUGGING
             // syslog_it2(LOG_DEBUG, "File %s exists on file descriptor %d", test_filename, fd);  // DEBUGGING
 
             // Get fuzzed content
-            // test_content = get_fuzzed_contents("This is my file.\nThere are many like it but this one is mine.\n", &content_size);
+            test_content = get_fuzzed_contents("This is my file.\nThere are many like it but this one is mine.\n", &content_size);
             // test_content = get_fuzzed_contents("This is my file.\n", &content_size);
-            test_content = get_fuzzed_contents("file", &content_size);
+            // test_content = get_fuzzed_contents("file", &content_size);
 
             if (test_content && content_size > 0)
             {
@@ -224,46 +225,58 @@ int main(int argc, char *argv[])
                 if (-1 == write(fd, test_content, content_size))
                 {
                     errnum = errno;
-                    syslog_errno(errnum, "Unable to write to %s", test_filename);
+                    syslog_errno(errnum, "(TEST HARNESS) Unable to write to %s", test_filename);
                     // log_external("(PARENT) Unable to write file");  // DEBUGGING
+                    success = errnum;
                 }
                 else
                 {
                     // syslog_it2(LOG_DEBUG, "(PARENT) Successfully created and wrote to file %s", test_filename);  // DEBUGGING
                 }
+                if (test_content)
+                {
+                    // Clear it here since we moved the call to fork() *after* test case prep
+                    free(test_content);
+                    test_content = NULL;
+                }
             }
             else
             {
-                log_external("Failed to fuzz content.");
+                // log_external("Failed to fuzz content.");
                 // log_external("(PARENT) Failed to fuzz content");  // DEBUGGING
+                syslog_it(LOG_ERR, "(TEST HARNESS) Failed to fuzz content.");
             }
 
             // Close
             if (fsync(fd))
             {
                 errnum = errno;
-                syslog_errno(errnum, "Unable to synchronize %s", test_filename);
+                syslog_errno(errnum, "(TEST HARNESS) Unable to synchronize %s", test_filename);
                 // log_external("(PARENT) Unable to sychronize");  // DEBUGGING
+                success = errnum;
             }
             if (close(fd))
             {
                 errnum = errno;
-                syslog_errno(errnum, "Unable to close %s", test_filename);
+                syslog_errno(errnum, "(TEST HARNESS) Unable to close %s", test_filename);
                 // log_external("(PARENT) Unable to close");  // DEBUGGING
+                success = errnum;
             }
             fd = -1;
         }
         else
         {
             errnum = errno;
-            syslog_errno(errnum, "Unable to make file %s", test_filename);
+            syslog_errno(errnum, "(TEST HARNESS) Unable to make file %s", test_filename);
             // log_external(test_filename);  // DEBUGGING
             // log_external("Failed to create file");  // DEBUGGING
+            success = errnum;
         }
     }
 
     // 6. Tell the daemon
-    if (0 == success && 0 < daemon)
+    if (0 == success)
+    // if (0 == success && 0 < daemon)
     {
         // log_external("About to call write_a_pipe()");  // DEBUGGING
         // char test_msg[] = { "This is a test of the pipe writing system!" };
@@ -273,12 +286,33 @@ int main(int argc, char *argv[])
 
         if (errnum)
         {
-            fprintf(stderr, "Unable to write to pipe.\nERROR: %s\n", strerror(errnum));
+            // fprintf(stderr, "Unable to write to pipe.\nERROR: %s\n", strerror(errnum));
             // log_external("Failed to write to pipe");  // DEBUGGING
+            syslog_errno(errnum, "(TEST HARNESS) Unable to write to pipe.");
+            success = errnum;
         }
         else
         {
             // log_external("The call to write_a_pipe() succeeded");  // DEBUGGING
+        }
+    }
+    // else if (0 < daemon)
+    // {
+    //     syslog_it(LOG_ERR, "(PARENT) There's an error and the child daemon will not receive any data.");  // DEBUGGING
+    // }
+
+    // 4. Start the "daemon"
+    if (0 == success)
+    {
+        // log_external("Successfully created the pipes");  // DEBUGGING
+        // syslog_it2(LOG_DEBUG, "pipe_fds[PIPE_READ] == %d and pipe_fds[PIPE_WRITE] == %d", pipe_fds[PIPE_READ], pipe_fds[PIPE_WRITE]);  // DEBUGGING
+        daemon = be_sure(&config);
+        // log_external("The call to be_sure() returned");  // DEBUGGING
+        // syslog_it2(LOG_DEBUG, "The call to be_sure() returned %d", daemon);  // DEBUGGING
+        if (-1 == daemon)
+        {
+            syslog_it(LOG_ERR, "(TEST HARNESS) The call to be_sure() failed");
+            success = -1;
         }
     }
 
@@ -289,15 +323,15 @@ int main(int argc, char *argv[])
         errnum = wait_daemon(daemon, &success);
         if (-1 == errnum)
         {
-            syslog_it2(LOG_ERR, "Call to wait_daemon(%ld) failed with an unspecified error", daemon);
+            syslog_it2(LOG_ERR, "(TEST HARNESS) Call to wait_daemon(%ld) failed with an unspecified error", daemon);
         }
         else if (0 < errnum)
         {
-            syslog_errno(errnum, "Call to wait_daemon(%ld) failed", daemon);
+            syslog_errno(errnum, "(TEST HARNESS) Call to wait_daemon(%ld) failed", daemon);
         }
         else
         {
-            syslog_it2(LOG_INFO, "Call to wait_daemon(%ld) succeeded.  Daemon exited with %d.", daemon, success);
+            syslog_it2(LOG_INFO, "(TEST HARNESS) Call to wait_daemon(%ld) succeeded.  Daemon exited with %d.", daemon, success);
         }
         // Was it processed?
         // Any errors detected among the syslog entries
@@ -308,7 +342,10 @@ int main(int argc, char *argv[])
     // 7. Delete files
     // NOTE: Let the child process (AKA the daemon) delete the file to avoid a race condition
     // if (1 == file_exists && 0 == daemon)
-    if (0 == daemon)
+    // if (0 < daemon)
+    // if (0 == daemon)
+
+    if (0 < daemon && 1 == file_exists)
     {
         if (1 == verify_filename(test_filename))
         {
@@ -317,59 +354,75 @@ int main(int argc, char *argv[])
                 errnum = errno;
                 // fprintf(stderr, "Unable to delete %s.\nERROR: %s\n", test_filename, strerror(errnum));
                 // log_external("Failed to delete file");  // DEBUGGING
-                // syslog_errno(errnum, "Unable to delete %s", test_filename);
+                syslog_errno(errnum, "(TEST HARNESS) Unable to delete %s", test_filename);
             }
         }
         else
         {
-            errnum = delete_matching_file(config.inotify_config.watched, base_filename, base_filename_len);
-            // Returns 0 on success, -1 on error, -2 if no match found, and errnum on failure
-            if (-2 == errnum)
+            // errnum = delete_matching_file(config.inotify_config.watched, base_filename, base_filename_len);
+            // // Returns 0 on success, -1 on error, -2 if no match found, and errnum on failure
+            // if (-2 == errnum)
+            // {
+            //     syslog_it2(LOG_DEBUG, "(TEST HARNESS) No match for %s found in %s to cleanup", base_filename, config.inotify_config.watched);  // DEBUGGING
+            // }
+            // else if (-1 == errnum)
+            // {
+            //     syslog_it2(LOG_ERR, "(TEST HARNESS) delete_matching_file(%s, %s, %zu) encountered an unspecified error", config.inotify_config.watched, base_filename, base_filename_len);
+            // }
+            // else if (0 == errnum)
+            // {
+            //     syslog_it2(LOG_INFO, "(TEST HARNESS) Successfully deleted a file matching %s from within %s", base_filename, config.inotify_config.watched);
+            // }
+            // else
+            // {
+            //     syslog_errno(errnum, "(TEST HARNESS) delete_matching_file(%s, %s, %zu) encountered an error", config.inotify_config.watched, base_filename, base_filename_len);
+            // }
+            // Empty processed
+            errnum = empty_dir(config.inotify_config.process);
+
+            if (0 == errnum)
             {
-                // syslog_it2(LOG_DEBUG, "No %s match found in %s for the (CHILD) to cleanup", base_filename, config.inotify_config.watched);  // DEBUGGING
+                syslog_it2(LOG_DEBUG, "Successfully emptied the %s directory", config.inotify_config.process);
             }
             else if (-1 == errnum)
             {
-                syslog_it2(LOG_ERR, "delete_matching_file(%s, %s, %zu) encountered an unspecified error", config.inotify_config.watched, base_filename, base_filename_len);
-            }
-            else if (0 == errnum)
-            {
-                // syslog_it2(LOG_INFO, "Successfully deleted a file matching %s from within %s", base_filename, config.inotify_config.watched);
+                syslog_it2(LOG_ERR, "Failed to empty the %s directory", config.inotify_config.process);
             }
             else
             {
-                syslog_errno(errnum, "delete_matching_file(%s, %s, %zu) encountered an error", config.inotify_config.watched, base_filename, base_filename_len);
+                syslog_errno(errnum, "Failed to empty the %s directory", config.inotify_config.process);
             }
         }
     }
 
     // Empty Directories
-    if (0 == daemon)
-    {
-        // NOTE FROM THE PAST
-        // Manually empty the watched directory if it's important.  Trust me...
+    // if (0 == daemon)
+    // {
+    //     // NOTE FROM THE PAST
+    //     // Manually empty the watched directory if it's important.  Trust me...
 
-        // Empty processed
-        errnum = empty_dir(config.inotify_config.process);
+    //     // Empty processed
+    //     errnum = empty_dir(config.inotify_config.process);
 
-        if (0 == errnum)
-        {
-            syslog_it2(LOG_DEBUG, "Successfully emptied the %s directory", config.inotify_config.process);
-        }
-        else if (-1 == errnum)
-        {
-            syslog_it2(LOG_ERR, "Failed to empty the %s directory", config.inotify_config.process);
-        }
-        else
-        {
-            syslog_errno(errnum, "Failed to empty the %s directory", config.inotify_config.process);
-        }
-    }
+    //     if (0 == errnum)
+    //     {
+    //         syslog_it2(LOG_DEBUG, "Successfully emptied the %s directory", config.inotify_config.process);
+    //     }
+    //     else if (-1 == errnum)
+    //     {
+    //         syslog_it2(LOG_ERR, "Failed to empty the %s directory", config.inotify_config.process);
+    //     }
+    //     else
+    //     {
+    //         syslog_errno(errnum, "Failed to empty the %s directory", config.inotify_config.process);
+    //     }
+    // }
 
     // DONE
     // TD: DDN... Should we add a safety check here to forcibly stop the "daemon" if it didn't already quit?
     // Child Process Cleanup
-    if (0 == daemon)
+    if (0 < daemon)
+    // if (0 == daemon)
     {
         // Restore umask
         old_umask = umask(old_umask);
@@ -392,15 +445,15 @@ int main(int argc, char *argv[])
         }
     }
     // Parent Cleanup
-    else
-    {
-        // test_content
-        if (test_content)
-        {
-            free(test_content);
-            test_content = NULL;
-        }
-    }
+    // if (0 < daemon)
+    // {
+    //     // test_content
+    //     if (test_content)
+    //     {
+    //         free(test_content);
+    //         test_content = NULL;
+    //     }
+    // }
     // EVERYBODY
     // PRO TIP: Since test_filename gets allocated *before* the call to fork(), the child process
     //  gets a *copy* of the heap memory... not *access* to the parent processes memory.
@@ -414,13 +467,13 @@ int main(int argc, char *argv[])
     }
 
     // DEBUGGING RACE CONDITIONS
-    if (0 < daemon)
+    if (0 != daemon)  // Parent or fork() failed
     {
-        syslog_it(LOG_NOTICE, "(PARENT) Exiting");
+        syslog_it(LOG_NOTICE, "(TEST HARNESS) Exiting");
     }
     else if (0 == daemon)
     {
-        syslog_it(LOG_NOTICE, "(CHILD) Exiting");
+        syslog_it(LOG_NOTICE, "(DAEMON) Exiting");
     }
     else
     {
