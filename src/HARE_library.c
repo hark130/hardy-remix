@@ -708,6 +708,13 @@ void execute_order(Configuration *config)
         {
             if (config->inotify_message.message.buffer && config->inotify_message.message.size > 0)
             {
+                // SEARCH FILE
+                if (true == search_a_file(config->inotify_message.message.buffer, NEEDLE))
+                {
+                    syslog_it2(LOG_INFO, "Found the %s needle in the file %s", NEEDLE, config->inotify_message.message.buffer);
+                }
+
+                // STAMP FILE
                 // syslog_it2(LOG_DEBUG, "Main: Received %s", config->inotify_message.message.buffer);  // DEBUGGING
                 // Received data, now add it to the jobs queue for the threadpool
                 // thpool_add_work(threadPool, execRunner, allocContext(config, context));
@@ -728,7 +735,7 @@ void execute_order(Configuration *config)
             else
             {
                 // No data available. Sleep for a brief moment and try again.
-                // syslog_it(LOG_DEBUG, "Call to getINotifyData() provided no data.");  // DEBUGGING
+                syslog_it(LOG_DEBUG, "Call to getINotifyData() provided no data.");  // DEBUGGING
                 sleep(1);
                 // syslog_it(LOG_DEBUG, "Exiting (until the test harness' getINotifyData() is implemented).");  // TD: DDN... remove once getINotifyData() is implemented
                 // break;  // TD: DDN... remove once getINotifyData() is implemented
@@ -1108,6 +1115,55 @@ char *read_a_pipe(int read_fd, int *msg_len, int *errnum)
 
     // DONE
     return retval;
+}
+
+
+bool search_a_file(char *haystack_file, char *needle)
+{
+    // LOCAL VARIABLES
+    bool found_it = false;       // Return value: true if found, false otherwise (or on error)
+    bool keep_going = false;     // Flow control
+    char *file_contents = NULL;  // Return value from call to read_file()
+
+    // INPUT VALIDATION
+    if (haystack_file && *haystack_file && needle && *needle)
+    {
+        keep_going = true;
+    }
+
+    // DO IT
+    // Read the file
+    if (true == keep_going)
+    {
+        file_contents = read_file(haystack_file);
+        if (!file_contents)
+        {
+            keep_going = false;
+        }
+    }
+    // Search the contents
+    if (true == keep_going)
+    {
+        if (strstr(file_contents, needle))
+        {
+            found_it = true;
+            syslog_it2(LOG_DEBUG, "Found the needle %s in %s", needle, haystack_file);  // DEBUGGING
+        }
+        else
+        {
+            syslog_it2(LOG_DEBUG, "Failed to find the needle %s in %s", needle, haystack_file);  // DEBUGGING
+        }
+    }
+
+    // CLEANUP
+    if (file_contents)
+    {
+        free(file_contents);
+        file_contents = NULL;
+    }
+
+    // DONE
+    return found_it;
 }
 
 

@@ -16,6 +16,8 @@
 
 #define FILE_MAX 255  // Maximum length for a Linux filename
 
+#define NEEDLE "???"  // Needle to search for in the test case file
+
 /*
  * Stolen from https://opensource.apple.com/source/xnu/xnu-344/bsd/sys/syslog.h.auto.html
  */
@@ -204,6 +206,13 @@ char *read_file(char *filename);
  *  Returns absolute filename on success, NULL on failure or "no match"
  */
 char *search_dir(char *haystack_dir, char *needle_file, size_t needle_file_len);
+
+
+/*
+ *  Search the contents of haystack_file for any occurrence of the needle substring
+ *  Returns true if found, false otherwise (or on error)
+ */
+bool search_a_file(char *haystack_file, char *needle);
 
 
 /*
