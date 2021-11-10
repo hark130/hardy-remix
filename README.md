@@ -50,6 +50,10 @@ echo -n "some_file.txt" > test/afl/input01/test_input.txt  # Create a test case
 afl-fuzz -D -i test/afl/input01/ -o test/afl/output01/ dist/<BINARY TO FUZZ>.bin @@
 ```
 
+# afl-fuzz -D -t 10000 -i test/afl/input16a/ -o test/afl/output16a/ -M fuzzer01 dist/source08_test_harness_best_AFL.bin @@
+# ASAN_OPTIONS="log_path=/ramdisk/asan_log abort_on_error=1 symbolize=0" afl-fuzz -D -t 10000 -i test/afl/input17/ -o test/afl/output17/ dist/source08_test_harness_bad_AFL_ASAN.bin @@
+# ASAN_OPTIONS="log_path=/ramdisk/asan_log abort_on_error=1 symbolize=0" afl-fuzz -D -i test/afl/input21/ -o test/afl/output21/ dist/source08_test_harness_bad_AFL_ASAN.bin @@
+
 3. Watch it run
 
 NOTE:  Regarding `<BINARY TO FUZZ>`... there are multiple binaries to fuzz.  Hopefully, the binaries are obviously named.  The higher the "source??" number, the more mature the code is.  The "source08" code represents the ultimate goal of this research: a "lite" Linux daemon to fuzz.  I recommend focusing on the "test_harness" files.  The "best" binaries should be error/crash/BUG free.  The "bad" binaries should have BUGs for the fuzzer to find.  TLDR... You're probably looking for a `dist` binary that matches `source08_test_harness_b*_AFL_*.bin`.
@@ -73,6 +77,7 @@ NOTE:  Regarding `<BINARY TO FUZZ>`... there are multiple binaries to fuzz.  Hop
  * [afl-manager](https://github.com/zx1340/afl-manager) - a web server on Python for managing multi-afl.
  * [afl-remote](https://github.com/block8437/afl-remote) - a web server for the remote management of AFL instances.
  * [afl-extras](https://github.com/fekir/afl-extras) - shell scripts to parallelize afl-tmin, startup, and data collection.
+ * [Parallel Fuzzing](https://medium.com/@ayushpriya10/optimized-fuzzing-with-american-fuzzy-lop-afl-e7ba2c2c8b8f)
 
 #### Crash Reporting
 
