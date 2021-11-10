@@ -230,6 +230,7 @@ static int _non_nul_file_match(const char *fpath, const struct stat *sb, int tfl
     const char *fpath_base = NULL;    // Base filename from fpath
     size_t fpath_base_len = 0;        // Length of fpath's base filename
     size_t fpath_len = 0;             // Length of fpath
+    size_t actual_len = 0;            // ACTUAL length of base_filename
 
     // INPUT VALIDATION
     // Arguments
@@ -251,16 +252,19 @@ static int _non_nul_file_match(const char *fpath, const struct stat *sb, int tfl
         {
             fpath_base = fpath + ftwbuf->base;  // Just the filename
             fpath_base_len = strlen(fpath_base);  // Length of the filename
-            // syslog_it2(LOG_DEBUG, "fpath: %s", fpath);  // DEBUGGING
+            actual_len = strlen(base_filename);  // Actual length of base_filename
+            syslog_it2(LOG_DEBUG, "fpath: %s", fpath);  // DEBUGGING
             // syslog_it2(LOG_DEBUG, "fpath_base: %s", fpath_base);  // DEBUGGING
             // syslog_it2(LOG_DEBUG, "fpath_base_len: %zu", fpath_base_len);  // DEBUGGING
-            // syslog_it2(LOG_DEBUG, "base_filename: %s", base_filename);
+            syslog_it2(LOG_DEBUG, "base_filename: %s", base_filename);  // DEBUGGING
 
             if (fpath_base_len < base_filename_len)
             {
+                syslog_it(LOG_INFO, "Not enough room for a matchin in _nul_file_match()");  // DEBUGGING
                 results = 0;  // There's not enough room for a match
             }
-            else if (!memcmp(fpath_base + (fpath_base_len - base_filename_len), base_filename, base_filename_len))
+            // else if (!memcmp(fpath_base + (fpath_base_len - base_filename_len), base_filename, base_filename_len))
+            else if (!memcmp(fpath_base + (fpath_base_len - actual_len), base_filename, actual_len))
             {
                 fpath_len = strlen(fpath);
                 processed_filename = calloc(fpath_len + 1, sizeof(char));
@@ -333,12 +337,15 @@ static int _nul_file_match(const char *fpath, const struct stat *sb, int tflag, 
             fpath_base = fpath + ftwbuf->base;  // Just the filename
             fpath_base_len = strlen(fpath_base);  // Length of the filename
             base_filename_nul = strlen(base_filename);  // Index of the base_filename nul character
-
+            syslog_it2(LOG_DEBUG, "FPATH BASE: %s", fpath_base + (fpath_base_len - base_filename_nul));  // DEBUGGING
+            syslog_it2(LOG_DEBUG, "BASE FILENAME: %s", base_filename);  // DEBUGGING
             if (fpath_base_len < base_filename_nul)
             {
+                syslog_it(LOG_INFO, "Not enough room for a matchin in _nul_file_match()");  // DEBUGGING
                 results = 0;  // There's not enough room for a match
             }
-            else if (!memcmp(fpath_base + (fpath_base_len - base_filename_nul), base_filename, base_filename_len))
+            // else if (!memcmp(fpath_base + (fpath_base_len - base_filename_nul), base_filename, base_filename_len))
+            else if (!memcmp(fpath_base + (fpath_base_len - base_filename_nul), base_filename, base_filename_nul))
             {
                 // NOTE: The *real* buffer size would be:
                 //  strlen(fpath) + 1 + base_filename_len - strlen(base_file_len) + 1, sizeof(char)
@@ -363,6 +370,10 @@ static int _nul_file_match(const char *fpath, const struct stat *sb, int tflag, 
                 }
             }
         }
+    }
+    else
+    {
+        syslog_it(LOG_ERR, "Input validation for _nul_file_match() failed");  // DEBUGGING
     }
 
     // CLEANUP
@@ -434,8 +445,8 @@ int _nul_file_matching(char *dirname, char *filename, size_t filename_len)
     {
         if (NULL != strstr(processed_filename, filename))
         {
-            // syslog_it2(LOG_DEBUG, "_nul_file_matching() matched %s in %s with %s",
-            //            filename, dirname, processed_filename);  // DEBUGGING
+            syslog_it2(LOG_DEBUG, "_nul_file_matching() matched %s in %s with %s",
+                       filename, dirname, processed_filename);  // DEBUGGING
         }
         else
         {
@@ -1171,8 +1182,8 @@ char *search_dir(char *haystack_dir, char *needle_file, size_t needle_file_len)
 {
     // LOCAL VARIABLES
     char *matching_file = NULL;  // Filename that matches needle_file
-    bool nul_in_needle = false;        // Different function calls based on nul characters
-    int results = 0;                   // Return value from internal function calls
+    bool nul_in_needle = false;  // Different function calls based on nul characters
+    int results = 0;             // Return value from internal function calls
 
     // INPUT VALIDATION
     // haystack_dir
@@ -1206,10 +1217,14 @@ char *search_dir(char *haystack_dir, char *needle_file, size_t needle_file_len)
         // Find it!
         if (true == nul_in_needle)
         {
+            syslog_it(LOG_DEBUG, "There's a nul");  // DEBUGGING
+            syslog_it2(LOG_DEBUG, "needle_file_len is %zu and strlen(needle_file) is %zu", needle_file_len, strlen(needle_file));  // DEBUGGING
             results = _nul_file_matching(haystack_dir, needle_file, needle_file_len);
+            // results = _non_nul_file_matching(haystack_dir, needle_file, needle_file_len);  // TESTING
         }
         else
         {
+            syslog_it(LOG_DEBUG, "There's no nul");  // DEBUGGING
             results = _non_nul_file_matching(haystack_dir, needle_file, needle_file_len);
         }
         // What happened?
@@ -1249,10 +1264,13 @@ int stamp_a_file(char *source_file, char *dest_dir)
     // LOCAL VARIABLES
     int errnum = -1;                              // 0 on success, -1 on bad input, errno on failure
     char *datetime_stamp = NULL;                  // Store the datetime stamp here
-    char new_filename[FILE_MAX + 1] = { 0 };      // New stamped filename
-    char new_abs_filename[PATH_MAX + 1] = { 0 };  // Concatenated dest_dir and new_filename
+    // char new_filename[FILE_MAX + 1] = { 0 };      // New stamped filename
+    // char new_abs_filename[PATH_MAX + 1] = { 0 };  // Concatenated dest_dir and new stamped filename
+    char *new_abs_filename = NULL;                // Concatenated dest_dir and new stamped filename
     size_t stamp_len = 0;                         // Length of datetime_stamp
     size_t dest_len = 0;                          // Length of dest_dir
+    size_t source_len = 0;                        // Length of source_file
+    size_t nafn_len = 0;                          // Length of new_abs_filename
 
     // INPUT VALIDATION
     // Arguments
@@ -1274,6 +1292,7 @@ int stamp_a_file(char *source_file, char *dest_dir)
     }
 
     // DO IT
+    // Get Datetime Stamp
     if (0 == errnum)
     {
         // Get datetime stamp
@@ -1283,24 +1302,63 @@ int stamp_a_file(char *source_file, char *dest_dir)
         {
             syslog_errno(errnum, "Call to get_datetime_stamp() failed");
         }
+        // else
+        // {
+        //     // Form new destination filename
+        //     stamp_len = strlen(datetime_stamp);
+        //     dest_len = strlen(dest_dir);
+        //     memcpy(new_filename, datetime_stamp, stamp_len);
+        //     strncat(new_filename, basename(source_file), FILE_MAX - stamp_len);
+        //     // syslog_it2(LOG_DEBUG, "new_filename == %s", new_filename);  // DEBUGGING
+        //     memcpy(new_abs_filename, dest_dir, dest_len);
+        //     if ('/' != new_abs_filename[strlen(new_abs_filename) - 1])
+        //     {
+        //         strncat(new_abs_filename, "/", 2);
+        //     }
+        //     strncat(new_abs_filename, new_filename, FILE_MAX);
+        //     syslog_it2(LOG_DEBUG, "old source filename == %s", source_file);  // DEBUGGING
+        //     syslog_it2(LOG_DEBUG, "new_abs_filename == %s", new_abs_filename);  // DEBUGGING
+
+        // }
+        // errnum = -1;  // TD: DDN... Implement this function properly
+    }
+    // Concatenate New Filename
+    if (0 == errnum)
+    {
+        // Measure everything
+        stamp_len = strlen(datetime_stamp);
+        dest_len = strlen(dest_dir);
+        source_len = strlen(basename(source_file));
+        // Allocate memory
+        new_abs_filename = calloc(dest_len + stamp_len + source_len + 2, sizeof(char));
+        if (new_abs_filename)
+        {
+            memcpy(new_abs_filename, dest_dir, dest_len);
+            nafn_len = strlen(new_abs_filename);
+            if ('/' != new_abs_filename[nafn_len - 1])
+            {
+                new_abs_filename[nafn_len - 1] = '/';
+                nafn_len++;
+            }
+            memcpy(new_abs_filename + nafn_len, datetime_stamp, stamp_len);
+            memcpy(new_abs_filename + nafn_len + stamp_len, basename(source_file), source_len);
+            nafn_len = strlen(new_abs_filename);
+            syslog_it2(LOG_DEBUG, "old source filename == %s", source_file);  // DEBUGGING
+            syslog_it2(LOG_DEBUG, "new_abs_filename == %s", new_abs_filename);  // DEBUGGING
+        }
         else
         {
-            // Form new destination filename
-            stamp_len = strlen(datetime_stamp);
-            dest_len = strlen(dest_dir);
-            memcpy(new_filename, datetime_stamp, stamp_len);
-            strncat(new_filename, basename(source_file), FILE_MAX - stamp_len);
-            // syslog_it2(LOG_DEBUG, "new_filename == %s", new_filename);  // DEBUGGING
-            memcpy(new_abs_filename, dest_dir, dest_len);
-            if ('/' != new_abs_filename[strlen(new_abs_filename) - 1])
+            errnum = errno;
+            if (0 == errnum)
             {
-                strncat(new_abs_filename, "/", 2);
+                syslog_it(LOG_ERR, "Call to calloc() failed with an unspecified error");
+                errnum = ENOMEM;
             }
-            strncat(new_abs_filename, new_filename, FILE_MAX);
-            // syslog_it2(LOG_DEBUG, "new_abs_filename == %s", new_abs_filename);  // DEBUGGING
-
+            else
+            {
+                syslog_errno(errnum, "Call to calloc() failed");
+            }
         }
-        // errnum = -1;  // TD: DDN... Implement this function properly
     }
     // Move the file
     if (0 == errnum)
@@ -1309,14 +1367,42 @@ int stamp_a_file(char *source_file, char *dest_dir)
         if (0 == errnum)
         {
             syslog_it2(LOG_INFO, "Successfully renamed %s to %s", source_file, new_abs_filename);
+            syslog_it2(LOG_DEBUG, "Saving %s for test harness deletion", new_abs_filename);  // DEBUGGING
+            processed_filename = new_abs_filename;  // Store the newly rename test case for later deletion
+            // nafn_len = strlen(new_abs_filename);
+            // processed_filename = calloc(nafn_len + 1, sizeof(char));
+            // if (processed_filename)
+            // {
+            //     if (processed_filename != memcpy(processed_filename, new_abs_filename, nafn_len))
+            //     {
+            //         errnum = errno;
+            //         syslog_errno(errnum, "Failed to copy the new filename");
+            //         free(processed_filename);
+            //         processed_filename = NULL;
+            //     }
+            //     else
+            //     {
+            //         syslog_it2(LOG_DEBUG, "Saving %s for test harness deletion", new_abs_filename);  // DEBUGGING
+            //         processed_filename = new_abs_filename;  // Store the newly rename test case for later deletion
+            //     }
+            // }
+            // else
+            // {
+            //     errnum = errno;
+            //     syslog_errno(errnum, "Failed to allocate memory to store the stamped filename");
+            // }
         }
         else if (-1 == errnum)
         {
             syslog_it(LOG_ERR, "The call to move_file() failed with bad input");
+            // syslog_it2(LOG_DEBUG, "Saving %s for test harness deletion", source_file);  // DEBUGGING
+            // processed_filename = source_file;  // Store the original test case for later deletion
         }
         else
         {
             syslog_errno(errnum, "The call to move_file() failed");
+            // syslog_it2(LOG_DEBUG, "Saving %s for test harness deletion", source_file);  // DEBUGGING
+            // processed_filename = source_file;  // Store the original test case for later deletion
         }
     }
 
