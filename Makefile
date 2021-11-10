@@ -34,6 +34,10 @@ MEMWATCH_FLAGS = -DMEMWATCH -DMW_STDIO -g
 HARE_BIN_NAME = "\"default_bin_name\""
 HARE_FLAGS = -DBINARY_NAME=$(HARE_BIN_NAME)
 
+filename_test:
+	$(CC) $(CFLAGS) -DBINARY_NAME="\"filename_test_bad.bin\"" -o $(DIST)filename_test_bad.bin $(CODE)filename_test.c $(CODE)HARE_library.c $(CODE)HARE_library_bad.c
+	$(CC) $(CFLAGS) -DBINARY_NAME="\"filename_test_best.bin\"" -o $(DIST)filename_test_best.bin $(CODE)filename_test.c $(CODE)HARE_library.c $(CODE)HARE_library_best.c
+
 hare:
 	$(CC) $(CFLAGS) $(HARE_FLAGS) -o $(DIST)HARE_library.o -c $(CODE)HARE_library.c
 	$(CC) $(CFLAGS) $(HARE_FLAGS) -o $(DIST)HARE_library_bad.o -c $(CODE)HARE_library_bad.c
@@ -119,6 +123,7 @@ waiting:
 	$(CC) $(CFLAGS) -o $(DIST)waiting.bin $(DIST)waiting.o
 
 all_source:
+	$(MAKE) filename_test
 	$(MAKE) source01
 	$(MAKE) source04
 	$(MAKE) source05
