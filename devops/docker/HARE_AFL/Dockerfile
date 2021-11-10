@@ -18,3 +18,7 @@ RUN apt update && apt install --yes rsyslog && chmod 0644 /etc/cron.d/syslog-cro
 # RADAMSA
 # Clone, build, and install Radamsa from source
 RUN cd / && git clone https://gitlab.com/akihe/radamsa.git && cd radamsa && make && make install
+
+# AFL++
+# Compile AFL++ with memory sanitizer
+RUN cd /AFLplusplus && make ASAN_BUILD=1
