@@ -127,51 +127,6 @@ char *getPriorityString(int priority)
 
 
 /*
- *  Compares fpath to base_filename.  Sets processed_filename if a match is found.
- *  Returns 1 if a file match is found (stop), 0 on no match (continue), and -1 on error
- *  Notes
- *      base_filename and processed_filename are both externed globals found in HARE_library.h.
- *          They are both initialized and utilized in source08_test_harness.c.
- */
-// static int match_file(const char *fpath, const struct stat *sb, int tflag, struct FTW *ftwbuf)
-// {
-//     // LOCAL VARIABLES
-//     int continue = 0;                            // 0 to continue, 1 to stop, -1 on error
-//     char *base_fpath = NULL;                     // Address to the base filename of fpath
-//     char *needle_file = base_filename;           // Filename to match on
-//     size_t needle_file_len = base_filename_len;  // Length of needle_file
-//     bool nul_in_needle = false;                  // A nul character in the needle_file is a game changer
-
-//     // INPUT VALIDATION
-//     if (FTW_F != tflag)
-//     {
-//         syslog_it2(LOG_DEBUG, "Not a file so we're skipping %s", fpath);  // DEBUGGING
-//     }
-//     else if (fpath && sb && ftwbuf && needle_file && 0 < needle_file_len)
-//     {
-//         syslog_it2(LOG_DEBUG, "CURRENT STATUS... fpath: %s needle: %s needle length: %zu", fpath, needle_file, needle_file_len);  // DEBUGGING
-//         // MATCH FILE NAMES
-//         // 1. Does the needle have a nul character?
-//         if (strlen(needle_file) != needle_file_len)
-//         {
-//             nul_in_needle = true;
-//         }
-//         // 2. Matching strategies
-//         if (true == nul_in_needle)
-//         {
-//             _nul_file_matching
-//         }
-//     }
-//     else
-//     {
-//         continue = -1;
-//     }
-
-//     return continue;
-// }
-
-
-/*
  *  Perform input validation on behalf of the _*nul_file_match() functions
  *  Returns -1 on error, 0 otherwise
  */
@@ -835,18 +790,6 @@ int delete_matching_file(char *dirname, char *filename, size_t filename_len)
         matched_file = search_dir(dirname, filename, filename_len);
         if (!matched_file)
         {
-            // if ('/' == *filename && filename_len > 1)
-            // {
-            //     syslog_it2(LOG_DEBUG, "%s starts with a leading /.  Calling search_dir() again", filename);  // DEBUGGING
-            //     // EDGE CASE: filename starts with a '/'.  The OS probably ignored it during file
-            //     //  creation so we should ignore it now.
-            //     matched_file = search_dir(dirname, filename + sizeof(char), filename_len - 1);
-            // }
-            // // Did the recursive attempt work?
-            // if (!matched_file)
-            // {
-            //     results = -2;  // Validation passed but no match found
-            // }
             results = -2;  // Validation passed but no match found
         }
     }
@@ -1144,18 +1087,6 @@ int make_pipes(int empty_pipes[2], int flags)
         }
         else if (true == call_fcntl)
         {
-            // old_flags = fcntl(empty_pipes[PIPE_READ], F_GETFL);
-
-            // if (-1 == old_flags)
-            // {
-            //     success = errno;
-            //     syslog_errno(success, "The call to fcntl(get_file_flags) failed.");
-            // }
-            // else if (0 != fcntl(empty_pipes[PIPE_READ], F_SETFL, old_flags | flags))
-            // {
-            //     success = errno;
-            //     syslog_errno(success, "The call to fcntl(set_file_flags) failed.");
-            // }
             success = add_flags_to_fd(empty_pipes[PIPE_READ], flags);
 
             if (0 != success)
@@ -1388,7 +1319,6 @@ char *search_dir(char *haystack_dir, char *needle_file, size_t needle_file_len)
 {
     // LOCAL VARIABLES
     char *matching_file = NULL;  // Filename that matches needle_file
-    bool nul_in_needle = false;  // Different function calls based on nul characters
     int results = 0;             // Return value from internal function calls
 
     // INPUT VALIDATION
@@ -1414,26 +1344,6 @@ char *search_dir(char *haystack_dir, char *needle_file, size_t needle_file_len)
     // DIR WALK
     else
     {
-        // Is there a premature nul-character in needle_file?
-        // syslog_it2(LOG_DEBUG, "needle_file_len is %zu and strlen(needle_file) is %zu", needle_file_len, strlen(needle_file));  // DEBUGGING
-        if (needle_file_len != strlen(needle_file))
-        {
-            nul_in_needle = true;
-        }
-        // Find it!
-        if (true == nul_in_needle)
-        {
-            // syslog_it(LOG_DEBUG, "There's a nul");  // DEBUGGING
-            // syslog_it2(LOG_DEBUG, "needle_file_len is %zu and strlen(needle_file) is %zu", needle_file_len, strlen(needle_file));  // DEBUGGING
-            // results = _nul_file_matching(haystack_dir, needle_file, needle_file_len);
-            // results = _non_nul_file_matching(haystack_dir, needle_file, needle_file_len);  // TESTING
-        }
-        // else
-        // {
-        //     syslog_it(LOG_DEBUG, "There's no nul");  // DEBUGGING
-        //     results = _non_nul_file_matching(haystack_dir, needle_file, needle_file_len);
-        // }
-        // syslog_it(LOG_DEBUG, "Nul character or not, the test harness is using the same filename matching algorithm");  // DEBUGGING
         results = _file_matching(haystack_dir, needle_file, needle_file_len);
         // What happened?
         if (1 == results)
@@ -1510,25 +1420,6 @@ int stamp_a_file(char *source_file, char *dest_dir)
         {
             syslog_errno(errnum, "Call to get_datetime_stamp() failed");
         }
-        // else
-        // {
-        //     // Form new destination filename
-        //     stamp_len = strlen(datetime_stamp);
-        //     dest_len = strlen(dest_dir);
-        //     memcpy(new_filename, datetime_stamp, stamp_len);
-        //     strncat(new_filename, basename(source_file), FILE_MAX - stamp_len);
-        //     // syslog_it2(LOG_DEBUG, "new_filename == %s", new_filename);  // DEBUGGING
-        //     memcpy(new_abs_filename, dest_dir, dest_len);
-        //     if ('/' != new_abs_filename[strlen(new_abs_filename) - 1])
-        //     {
-        //         strncat(new_abs_filename, "/", 2);
-        //     }
-        //     strncat(new_abs_filename, new_filename, FILE_MAX);
-        //     syslog_it2(LOG_DEBUG, "old source filename == %s", source_file);  // DEBUGGING
-        //     syslog_it2(LOG_DEBUG, "new_abs_filename == %s", new_abs_filename);  // DEBUGGING
-
-        // }
-        // errnum = -1;  // TD: DDN... Implement this function properly
     }
     // Concatenate New Filename
     if (0 == errnum)
@@ -1577,28 +1468,6 @@ int stamp_a_file(char *source_file, char *dest_dir)
             syslog_it2(LOG_INFO, "Successfully renamed %s to %s", source_file, new_abs_filename);
             // syslog_it2(LOG_DEBUG, "Saving %s for test harness deletion", new_abs_filename);  // DEBUGGING
             processed_filename = new_abs_filename;  // Store the newly rename test case for later deletion
-            // nafn_len = strlen(new_abs_filename);
-            // processed_filename = calloc(nafn_len + 1, sizeof(char));
-            // if (processed_filename)
-            // {
-            //     if (processed_filename != memcpy(processed_filename, new_abs_filename, nafn_len))
-            //     {
-            //         errnum = errno;
-            //         syslog_errno(errnum, "Failed to copy the new filename");
-            //         free(processed_filename);
-            //         processed_filename = NULL;
-            //     }
-            //     else
-            //     {
-            //         syslog_it2(LOG_DEBUG, "Saving %s for test harness deletion", new_abs_filename);  // DEBUGGING
-            //         processed_filename = new_abs_filename;  // Store the newly rename test case for later deletion
-            //     }
-            // }
-            // else
-            // {
-            //     errnum = errno;
-            //     syslog_errno(errnum, "Failed to allocate memory to store the stamped filename");
-            // }
         }
         else if (-1 == errnum)
         {
