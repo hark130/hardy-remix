@@ -219,6 +219,102 @@ static int _delete_file(const char *fpath, const struct stat *sb, int tflag, str
 
 
 /*
+ *  Implements and utilizes a filename matching algorithm as the nftw() callback.  Ignores
+ *      leading '/' characters on the base_filename.
+ *  Returns 1 on a match, -1 on error, 0 otherwise (tells nftw() to continue)
+ */
+static int _file_match(const char *fpath, const struct stat *sb, int tflag, struct FTW *ftwbuf)
+{
+    // LOCAL VARIABLES
+    int results = 0;                        // 1 on a match, -1 on error, 0 otherwise (tells nftw() to continue)
+    const char *fpath_base = NULL;          // Base filename from fpath
+    size_t fpath_base_len = 0;              // Length of fpath's base filename
+    size_t fpath_len = 0;                   // Length of fpath
+    char *local_base_file = base_filename;  // Local pointer to base_filename
+    size_t actual_len = 0;                  // ACTUAL length of local_base_file
+
+    // INPUT VALIDATION
+    syslog_it(LOG_DEBUG, "Inside _file_match(), prior to INPUT VALIDATION");  // DEBUGGING
+    // Arguments
+    results = _validate_nftw_callback(fpath, sb, tflag, ftwbuf);
+    // Globals
+    if (!base_filename || 0 >= base_filename_len)
+    {
+        results = -1;
+    }
+    syslog_it2(LOG_DEBUG, "Inside _file_match(), INPUT VALIDATION resulted in %d", results);  // DEBUGGING
+
+    // DO IT
+    if (-1 != results)
+    {
+        if (FTW_F != tflag)
+        {
+            // syslog_it2(LOG_DEBUG, "Not a file so we're skipping %s", fpath);  // DEBUGGING
+        }
+        else
+        {
+            // Trim leading '/' characters
+            while ('/' == *local_base_file)
+            {
+                syslog_it2(LOG_DEBUG, "Trimming %s", local_base_file);  // DEBUGGING
+                local_base_file++;
+                syslog_it2(LOG_DEBUG, "Trimmed %s", local_base_file);  // DEBUGGING
+            }
+
+            // Measure everything
+            fpath_base = fpath + ftwbuf->base;  // Just the filename
+            fpath_base_len = strlen(fpath_base);  // Length of the filename
+            actual_len = strlen(local_base_file);  // Actual length of base_filename
+            syslog_it2(LOG_DEBUG, "fpath: %s", fpath);  // DEBUGGING
+            syslog_it2(LOG_DEBUG, "local_base_file: %s", local_base_file);  // DEBUGGING
+
+            // if (fpath_base_len < base_filename_len)
+            if (fpath_base_len < actual_len)
+            {
+                syslog_it(LOG_INFO, "Not enough room for a match in _file_match()");  // DEBUGGING
+                results = 0;  // There's not enough room for a match
+            }
+            else if (!memcmp(fpath_base + (fpath_base_len - actual_len), local_base_file, actual_len))
+            {
+                fpath_len = strlen(fpath);
+                processed_filename = calloc(fpath_len + 1, sizeof(char));
+                if (processed_filename)
+                {
+                    if (processed_filename != memcpy(processed_filename, fpath, fpath_len))
+                    {
+                        results = -1;
+                    }
+                    else
+                    {
+                        // syslog_it2(LOG_DEBUG, "NON-'nul' processed_filename is %s", processed_filename);  // DEBUGGING
+                        results = 1;
+                    }
+                }
+                else
+                {
+                    syslog_errno(errno, "Call to calloc() inside _file_match() failed");
+                    results = -1;
+                }
+            }
+        }
+    }
+
+    // CLEANUP
+    if (-1 == results)
+    {
+        if (processed_filename)
+        {
+            free(processed_filename);
+            processed_filename = NULL;
+        }
+    }
+
+    // DONE
+    return results;
+}
+
+
+/*
  *  Implements and utilizes the non-nul terminator filename matching algorithm as the
  *      nftw() callback
  *  Returns 1 on a match, -1 on error, 0 otherwise (tells nftw() to continue)
@@ -259,8 +355,9 @@ static int _non_nul_file_match(const char *fpath, const struct stat *sb, int tfl
             syslog_it2(LOG_DEBUG, "base_filename: %s", base_filename);  // DEBUGGING
 
             if (fpath_base_len < base_filename_len)
+            // if (fpath_base_len < actual_len)
             {
-                syslog_it(LOG_INFO, "Not enough room for a matchin in _nul_file_match()");  // DEBUGGING
+                syslog_it(LOG_INFO, "Not enough room for a match in _non_nul_file_match()");  // DEBUGGING
                 results = 0;  // There's not enough room for a match
             }
             // else if (!memcmp(fpath_base + (fpath_base_len - base_filename_len), base_filename, base_filename_len))
@@ -341,7 +438,7 @@ static int _nul_file_match(const char *fpath, const struct stat *sb, int tflag, 
             syslog_it2(LOG_DEBUG, "BASE FILENAME: %s", base_filename);  // DEBUGGING
             if (fpath_base_len < base_filename_nul)
             {
-                syslog_it(LOG_INFO, "Not enough room for a matchin in _nul_file_match()");  // DEBUGGING
+                syslog_it(LOG_INFO, "Not enough room for a match in _nul_file_match()");  // DEBUGGING
                 results = 0;  // There's not enough room for a match
             }
             // else if (!memcmp(fpath_base + (fpath_base_len - base_filename_nul), base_filename, base_filename_len))
@@ -419,6 +516,46 @@ int _validate_file_matching(char *dirname, char *filename, size_t filename_len)
     else if (0 >= filename_len)
     {
         results = -1;
+    }
+
+    // DONE
+    return results;
+}
+
+
+/*
+ *  Executes a recursive dirwalk on dirname attempting to match filename with a generic filename
+ *      matching algorithm.  Does not validate input.
+ *  Returns 1 on a match, -1 on error, 0 otherwise
+ */
+int _file_matching(char *dirname, char *filename, size_t filename_len)
+{
+    // LOCAL VARIABLES
+    int results = 0;                   // 1 on a match, -1 on error, 0 otherwise
+    int flags = FTW_DEPTH | FTW_PHYS;  // See: man nftw
+
+    // DIRWALK
+    results = nftw(dirname, _file_match, 4, flags);
+
+    // VERIFY RESULTS
+    if (processed_filename)
+    {
+        if (NULL != strstr(processed_filename, filename))
+        {
+            // syslog_it2(LOG_DEBUG, "_file_matching() matched %s in %s with %s",
+            //            filename, dirname, processed_filename);  // DEBUGGING
+        }
+        else
+        {
+            // EDGE CASE: Leading '/' char in base_filename
+            syslog_it2(LOG_INFO, "Must have found an edge case by matching %s in %s with %s",
+                       filename, dirname, processed_filename);
+        }
+    }
+    else if (1 == results)
+    {
+        syslog_it(LOG_ERR, "How can the processed_filename pointer be NULL but nftw() claims a match?!");
+        results = -1;  // Can't have a match if the pointer is NULL!
     }
 
     // DONE
@@ -540,6 +677,48 @@ int redirectStdStreams()
 /*************************************** LIBRARY FUNCTIONS ***************************************/
 /*************************************************************************************************/
 
+/*
+ *  Add flags to a file descriptor.  Existing flags are preserved.
+ *  Arguments
+ *      fd - Existing file descriptor
+ *      flags - Flags to to add to fd's existing flags
+ *  Returns 0 on success, -1 on bad input, errno on failure;
+ */
+int add_flags_to_fd(int fd, int flags)
+{
+    // LOCAL VARIABLES
+    int success = -1;   // 0 on success, -1 on bad input, errno on failure
+    int old_flags = 0;  // Existing flags for fd
+
+    // INPUT VALIDATION
+    if (fd > INVALID_FD)
+    {
+        success = 0;
+    }
+
+    // DO IT
+    if (0 == success && flags)
+    {
+        // Get existing flags
+        old_flags = fcntl(fd, F_GETFL);
+
+        if (-1 == old_flags)
+        {
+            success = errno;
+            syslog_errno(success, "The call to fcntl(get_file_flags) failed.");
+        }
+        // Add new flags
+        else if (0 != fcntl(fd, F_SETFL, old_flags | flags))
+        {
+            success = errno;
+            syslog_errno(success, "The call to fcntl(set_file_flags) failed.");
+        }
+    }
+
+    // DONE
+    return success;
+}
+
 
 void cleanupDaemon()
 {
@@ -644,7 +823,7 @@ int delete_file(char *filename)
 int delete_matching_file(char *dirname, char *filename, size_t filename_len)
 {
     // LOCAL VARIABLES
-    int results = -1;                 // 0 on success, -1 on error, -2 if no match found, and errnum on failure
+    int results = -1;           // 0 on success, -1 on error, -2 if no match found, and errnum on failure
     char *matched_file = NULL;  // Filename to delete
 
     // INPUT VALIDATION
@@ -656,6 +835,18 @@ int delete_matching_file(char *dirname, char *filename, size_t filename_len)
         matched_file = search_dir(dirname, filename, filename_len);
         if (!matched_file)
         {
+            // if ('/' == *filename && filename_len > 1)
+            // {
+            //     syslog_it2(LOG_DEBUG, "%s starts with a leading /.  Calling search_dir() again", filename);  // DEBUGGING
+            //     // EDGE CASE: filename starts with a '/'.  The OS probably ignored it during file
+            //     //  creation so we should ignore it now.
+            //     matched_file = search_dir(dirname, filename + sizeof(char), filename_len - 1);
+            // }
+            // // Did the recursive attempt work?
+            // if (!matched_file)
+            // {
+            //     results = -2;  // Validation passed but no match found
+            // }
             results = -2;  // Validation passed but no match found
         }
     }
@@ -914,7 +1105,7 @@ int make_pipes(int empty_pipes[2], int flags)
     int success = -1;         // Returns 0 on success, -1 on bad input, errno on failure
     int retval = 0;           // Return value from pipe()/pipe2()
     bool call_fcntl = false;  // If true, call fcntl() with flags
-    int old_flags = 0;        // Current flags
+    // int old_flags = 0;        // Current flags
 
     // INPUT VALIDATION
     if (empty_pipes)
@@ -931,10 +1122,10 @@ int make_pipes(int empty_pipes[2], int flags)
         if (flags)
         {
             #if defined _GNU_SOURCE && defined __USE_GNU
-            // syslog_it(LOG_INFO, "Calling pipe2()");
+            syslog_it(LOG_INFO, "Calling pipe2()");
             retval = pipe2(empty_pipes, flags);
             #else
-            // syslog_it(LOG_INFO, "Calling pipe()");
+            syslog_it(LOG_INFO, "Calling pipe()");
             retval = pipe(empty_pipes);
             call_fcntl = true;  // There are flags but we're not using pipe2()
             #endif  // _GNU_SOURCE && __USE_GNU
@@ -953,17 +1144,32 @@ int make_pipes(int empty_pipes[2], int flags)
         }
         else if (true == call_fcntl)
         {
-            old_flags = fcntl(empty_pipes[PIPE_READ], F_GETFL);
+            // old_flags = fcntl(empty_pipes[PIPE_READ], F_GETFL);
 
-            if (-1 == old_flags)
+            // if (-1 == old_flags)
+            // {
+            //     success = errno;
+            //     syslog_errno(success, "The call to fcntl(get_file_flags) failed.");
+            // }
+            // else if (0 != fcntl(empty_pipes[PIPE_READ], F_SETFL, old_flags | flags))
+            // {
+            //     success = errno;
+            //     syslog_errno(success, "The call to fcntl(set_file_flags) failed.");
+            // }
+            success = add_flags_to_fd(empty_pipes[PIPE_READ], flags);
+
+            if (0 != success)
             {
-                success = errno;
-                syslog_errno(success, "The call to fcntl(get_file_flags) failed.");
+                syslog_it(LOG_ERR, "Call to set flags for the read pipe has failed");
             }
-            else if (0 != fcntl(empty_pipes[PIPE_READ], F_SETFL, old_flags | flags))
+            else
             {
-                success = errno;
-                syslog_errno(success, "The call to fcntl(set_file_flags) failed.");
+                success = add_flags_to_fd(empty_pipes[PIPE_WRITE], flags);
+
+                if (0 != success)
+                {
+                    syslog_it(LOG_ERR, "Call to set flags for the write pipe has failed");
+                }
             }
         }
     }
@@ -1219,14 +1425,16 @@ char *search_dir(char *haystack_dir, char *needle_file, size_t needle_file_len)
         {
             syslog_it(LOG_DEBUG, "There's a nul");  // DEBUGGING
             syslog_it2(LOG_DEBUG, "needle_file_len is %zu and strlen(needle_file) is %zu", needle_file_len, strlen(needle_file));  // DEBUGGING
-            results = _nul_file_matching(haystack_dir, needle_file, needle_file_len);
+            // results = _nul_file_matching(haystack_dir, needle_file, needle_file_len);
             // results = _non_nul_file_matching(haystack_dir, needle_file, needle_file_len);  // TESTING
         }
-        else
-        {
-            syslog_it(LOG_DEBUG, "There's no nul");  // DEBUGGING
-            results = _non_nul_file_matching(haystack_dir, needle_file, needle_file_len);
-        }
+        // else
+        // {
+        //     syslog_it(LOG_DEBUG, "There's no nul");  // DEBUGGING
+        //     results = _non_nul_file_matching(haystack_dir, needle_file, needle_file_len);
+        // }
+        syslog_it(LOG_DEBUG, "Nul character or not, the test harness is using the same filename matching algorithm");  // DEBUGGING
+        results = _file_matching(haystack_dir, needle_file, needle_file_len);
         // What happened?
         if (1 == results)
         {
