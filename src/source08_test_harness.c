@@ -49,18 +49,6 @@ void log_external(char *log_entry);
 
 
 /*
- *  Signal handler append signal number message to LOG_FILENAME
- */
-// void log_signal(int sigNum);
-
-
-/*
- *  Logs all caught signals
- */
-// void log_signals(void);
-
-
-/*
  *  Prepend the contents of filename with the string found in prepend
  *  If prepend if NULL or empty, returns unaltered contents of filename
  *  Contents of total_size is zeroized.  Upon success, total_size contains
@@ -98,10 +86,11 @@ off_t size_test_file(char *filename);
  *  1. Read and prepend test case filename
  *  2. Setup environment (e.g., watch dir, process dir)
  *  3. Prepare to "hook" inotify
- *  4. Start the "daemon"
- *  5. Attempt to create the test case file (with fuzzed contents)
- *  6. Test results(?)
- *  7. Delete the test case file
+ *  4. Attempt to create the test case file (with fuzzed contents)
+ *  5. Tell the "daemon" about the test case
+ *  6. Start the "daemon"
+ *  7. Test results(?)
+ *  8. Delete the test case file
  */
 int main(int argc, char *argv[])
 {
@@ -121,8 +110,6 @@ int main(int argc, char *argv[])
 
     // DO IT
     // 1. Read file containing test input
-    // log_external(filename);  // DEBUGGING
-
     if (1 == check_dir("/ramdisk"))
     {
         test_filename = prepend_test_input(filename, "/ramdisk/watch/", &test_filename_len);
@@ -146,9 +133,6 @@ int main(int argc, char *argv[])
         syslog_it(LOG_ERR, "Call to prepend_test_input() failed with an unspecified error");
         success = -1;
     }
-    // syslog_it2(LOG_DEBUG, "BEFORE: %s", test_filename);  // DEBUGGING
-    // test_filename[strlen(test_filename) - strlen("test.txt")] = 0;  // Prematurely nul-terminate the filename
-    // syslog_it2(LOG_DEBUG, "AFTER: %s", test_filename);  // DEBUGGING
 
     // 2. Setup environment
     if (0 == success)
@@ -192,23 +176,7 @@ int main(int argc, char *argv[])
     if (0 == success)
     {
         success = make_pipes(pipe_fds, O_NONBLOCK);
-        // DEBUGGING
-        // if (0 == success)
-        // {
-        //     log_external("About to fill the pipe with something to read");  // DEBUGGING
-        //     char debug_msg[] = { "The call to read_a_pipe() returned errno 11 on an empty pipe.  Do I have to put something in there for it to successfully ready anything?!" };
-        //     errnum = write_a_pipe(pipe_fds[PIPE_WRITE], debug_msg, sizeof(debug_msg));
 
-        //     if (errnum)
-        //     {
-        //         syslog_it2(LOG_DEBUG, "Unable to write debug message to pipe.\nERROR: %s\n", strerror(errnum));
-        //         log_external("Failed to write to pipe");  // DEBUGGING
-        //     }
-        //     else
-        //     {
-        //         log_external("The call to write_a_pipe(DEBUG MESSAGE) succeeded");  // DEBUGGING
-        //     }
-        // }
         if (-1 == success)
         {
             syslog_it(LOG_ERR, "(TEST HARNESS) Call to make_pipes() failed with bad input");
@@ -219,20 +187,9 @@ int main(int argc, char *argv[])
         }
     }
 
-    // // 4. Start the "daemon"
-    // if (0 == success)
-    // {
-    //     // log_external("Successfully created the pipes");  // DEBUGGING
-    //     // syslog_it2(LOG_DEBUG, "pipe_fds[PIPE_READ] == %d and pipe_fds[PIPE_WRITE] == %d", pipe_fds[PIPE_READ], pipe_fds[PIPE_WRITE]);  // DEBUGGING
-    //     daemon = be_sure(&config);
-    //     // log_external("The call to be_sure() returned");  // DEBUGGING
-    //     // syslog_it2(LOG_DEBUG, "The call to be_sure() returned %d", daemon);  // DEBUGGING
-    // }
-
-    // 5. Attempt file creation
+    // 4. Attempt file creation
     // syslog_it2(LOG_DEBUG, "Current status is... success: %d, test_filename: %s, daemon: %d", success, test_filename, daemon);  // DEBUGGING
     if (0 == success)
-    // if (0 == success && test_filename && 0 < daemon)
     {
         // Create
         // log_external("(PARENT) About to create the file");  // DEBUGGING
@@ -261,12 +218,6 @@ int main(int argc, char *argv[])
                     // syslog_it2(LOG_DEBUG, "Current status is... fd: %d, test_content: (%p) %s, content size: %zu", fd, test_content, test_content, content_size);  // DEBUGGING
                     if (errnum)
                     {
-                        // syslog_it2(LOG_DEBUG, "errnum (%d): %s", errnum, strerror(errnum));  // DEBUGGING
-                        // if (EFAULT == errnum)
-                        // {
-                        //     // EFAULT [test_content] is outside your accessible address space.
-                        //     syslog_it2(LOG_ERR, "Test content (%p): %s", test_content, test_content);  // DEBUGGING
-                        // }
                         success = errnum;
                     }
                     else
@@ -287,7 +238,7 @@ int main(int argc, char *argv[])
             }
             else
             {
-                // log_external("Failed to fuzz content.");
+                // log_external("Failed to fuzz content.");  // DEBUGGING
                 // log_external("(PARENT) Failed to fuzz content");  // DEBUGGING
                 syslog_it(LOG_ERR, "(TEST HARNESS) Failed to fuzz content.");
             }
@@ -371,14 +322,9 @@ int main(int argc, char *argv[])
         }
     }
 
-    // 6. Tell the daemon
+    // 5. Tell the daemon
     if (0 == success)
-    // if (0 == success && 0 < daemon)
     {
-        // log_external("About to call write_a_pipe()");  // DEBUGGING
-        // char test_msg[] = { "This is a test of the pipe writing system!" };
-        // errnum = write_a_pipe(pipe_fds[PIPE_WRITE], test_msg, sizeof(test_msg));
-
         errnum = write_a_pipe(pipe_fds[PIPE_WRITE], test_filename, test_filename_len);
 
         if (errnum)
@@ -393,12 +339,8 @@ int main(int argc, char *argv[])
             // log_external("The call to write_a_pipe() succeeded");  // DEBUGGING
         }
     }
-    // else if (0 < daemon)
-    // {
-    //     syslog_it(LOG_ERR, "(PARENT) There's an error and the child daemon will not receive any data.");  // DEBUGGING
-    // }
 
-    // 4. Start the "daemon"
+    // 6. Start the "daemon"
     if (0 == success)
     {
         // log_external("Successfully created the pipes");  // DEBUGGING
@@ -413,7 +355,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    // 6. Test results
+    // 7. Test results
     if (0 == success && 0 < daemon)
     {
         // WAIT FOR THE DAEMON TO EXIT
@@ -436,11 +378,7 @@ int main(int argc, char *argv[])
         // Did this filename show up in the fuzzer's "output"?  (If so, maybe save it?)
     }
 
-    // 7. Delete files
-    // if (1 == file_exists && 0 == daemon)
-    // if (0 < daemon)
-    // if (0 == daemon)
-
+    // 8. Delete files
     if (0 < daemon && 1 == file_exists)
     {
         if (1 == verify_filename(test_filename))
@@ -448,14 +386,11 @@ int main(int argc, char *argv[])
             if (-1 == remove(test_filename))
             {
                 errnum = errno;
-                // fprintf(stderr, "Unable to delete %s.\nERROR: %s\n", test_filename, strerror(errnum));
-                // log_external("Failed to delete file");  // DEBUGGING
                 syslog_errno(errnum, "(TEST HARNESS) Unable to delete %s", test_filename);
             }
         }
         else
         {
-            // errnum = delete_matching_file(config.inotify_config.watched, base_filename, base_filename_len);
             errnum = delete_matching_file(config.inotify_config.process, base_filename, base_filename_len);
             // Returns 0 on success, -1 on error, -2 if no match found, and errnum on failure
             if (-2 == errnum)
@@ -474,64 +409,11 @@ int main(int argc, char *argv[])
             {
                 syslog_errno(errnum, "(TEST HARNESS) delete_matching_file(%s, %s, %zu) encountered an error", config.inotify_config.watched, base_filename, base_filename_len);
             }
-            // Empty processed
-            // errnum = empty_dir(config.inotify_config.process);
-
-            // if (0 == errnum)
-            // {
-            //     syslog_it2(LOG_DEBUG, "Successfully emptied the %s directory", config.inotify_config.process);
-            // }
-            // else if (-1 == errnum)
-            // {
-            //     syslog_it2(LOG_ERR, "Failed to empty the %s directory", config.inotify_config.process);
-            // }
-            // else
-            // {
-            //     syslog_errno(errnum, "Failed to empty the %s directory", config.inotify_config.process);
-            // }
         }
     }
 
-    // if (0 < daemon)
-    // {
-    //     if (1 == verify_filename(processed_filename))
-    //     {
-    //         if (-1 == remove(processed_filename))
-    //         {
-    //             errnum = errno;
-    //             syslog_errno(errnum, "(TEST HARNESS) Unable to delete %s", processed_filename);
-    //         }
-    //     }
-    //     else if (1 == file_exists)
-    //     {
-    //         syslog_it2(LOG_ERR, "(TEST HARNESS) Created %s but unable to find it", processed_filename);
-    //     }
-    // }
-
-    // Empty Directories
-    // if (0 == daemon)
-    // {
-    //     // NOTE FROM THE PAST
-    //     // Manually empty the watched directory if it's important.  Trust me...
-
-    //     // Empty processed
-    //     errnum = empty_dir(config.inotify_config.process);
-
-    //     if (0 == errnum)
-    //     {
-    //         syslog_it2(LOG_DEBUG, "Successfully emptied the %s directory", config.inotify_config.process);
-    //     }
-    //     else if (-1 == errnum)
-    //     {
-    //         syslog_it2(LOG_ERR, "Failed to empty the %s directory", config.inotify_config.process);
-    //     }
-    //     else
-    //     {
-    //         syslog_errno(errnum, "Failed to empty the %s directory", config.inotify_config.process);
-    //     }
-    // }
-
-    // DONE
+    // CLEANUP
+    // Parent Cleanup
     if (0 < daemon)
     {
         // Restore umask
@@ -554,16 +436,6 @@ int main(int argc, char *argv[])
             processed_filename = NULL;
         }
     }
-    // Parent Cleanup
-    // if (0 < daemon)
-    // {
-    //     // test_content
-    //     if (test_content)
-    //     {
-    //         free(test_content);
-    //         test_content = NULL;
-    //     }
-    // }
     // EVERYBODY
     // PRO TIP: Since test_filename gets allocated *before* the call to fork(), the child process
     //  gets a *copy* of the heap memory... not *access* to the parent processes memory.
@@ -576,19 +448,12 @@ int main(int argc, char *argv[])
         test_filename = NULL;
     }
 
-    // DEBUGGING RACE CONDITIONS
+    // DONE
     if (0 != daemon)  // Parent or fork() failed
     {
         syslog_it(LOG_NOTICE, "(TEST HARNESS) Exiting");
     }
-    // else if (0 == daemon)
-    // {
-    //     syslog_it(LOG_NOTICE, "(DAEMON) Exiting");
-    // }
-    // else
-    // {
-    //     syslog_it(LOG_ERR, "HOW DID WE GET HERE?!");
-    // }
+
     return success;
 }
 
@@ -616,43 +481,6 @@ int check_dir(char *path)
     // DONE
     return retval;
 }
-
-
-// char *create_system_cmd(char *filename)
-// {
-//     // LOCAL VARIABLES
-//     // Template string used to create the system command
-//     char template[] = { "echo \"This is my file.\nThere are many like it but this one is mine.\" | radamsa > %s" };
-//     // char template[] = { "echo \"This is my file.\n\" | radamsa > %s" };
-//     char *system_cmd = NULL;  // Full system command
-//     size_t buff_size = 0;     // Number of bytes to allocate
-//     int errnum = 0;           // Store errno values
-
-//     // INPUT VALIDATION
-//     if (filename && *filename)
-//     {
-//         buff_size = sizeof(template) + strlen(filename) + 1;
-//         system_cmd = (char *)calloc(buff_size, sizeof(char));
-//         if (system_cmd)
-//         {
-//             if (snprintf(system_cmd, buff_size, template, filename) < 0)
-//             {
-//                 errnum = errno;
-//                 fprintf(stderr, "Unable to form the system command.\nERROR: %s\n", strerror(errnum));
-//                 free(system_cmd);
-//                 system_cmd = NULL;
-//             }
-//         }
-//         else
-//         {
-//             errnum = errno;
-//             fprintf(stderr, "Unable to allocate memory.\nERROR: %s\n", strerror(errnum));
-//         }
-//     }
-
-//     // DONE
-//     return system_cmd;
-// }
 
 
 char *get_fuzzed_contents(char *original, size_t *buff_size)
@@ -741,91 +569,6 @@ void log_external(char *log_entry)
 {
     syslog_it(LOG_DEBUG, log_entry);
 }
-
-
-// void log_signal(int sigNum)
-// {
-//     // LOCAL VARIABLES
-//     FILE *log_file = NULL;  // Log filename
-//     int errNum = 0;        // Store errno here upon error
-//     char template[] = { "Received signal #%02d\n" };  // Template message to log
-//     char message[65] = { 0 };
-
-//     // DO IT
-//     // 1. LOG IT
-//     // Open
-//     log_file = fopen(LOG_FILENAME, "a+");
-//     if (log_file)
-//     {
-//         // Format message
-//         if (snprintf(message, 64, template, sigNum) < 0)
-//         {
-//             fprintf(stderr, "Call to snprintf() failed.\n");
-//         }
-//         // Write
-//         else
-//         {
-//             if (65 != fwrite(message, sizeof(char), 65, log_file))
-//             {
-//                fprintf(stderr, "Call to fwrite() failed.\n");
-//             }
-//         }
-//         // Close
-//         fclose(log_file);
-//         log_file = NULL;
-//     }
-//     else
-//     {
-//         errNum = errno;
-//         fprintf(stderr, "Failed to open %s with: %s\n", LOG_FILENAME, strerror(errNum));
-//     }
-//     // 2. SIGNAL IT
-//     // Reregister signal as default
-//     if (SIG_ERR == signal(sigNum, old_sig_handlers[sigNum]))
-//     {
-//         errNum = errno;
-//         fprintf(stderr, "Call to signal(%d) failed with: %s\n", sigNum, strerror(errNum));
-//     }
-//     // Raise
-//     else if (raise(sigNum))
-//     {
-//         errNum = errno;
-//         fprintf(stderr, "Call to raise(%d) failed with: %s\n", sigNum, strerror(errNum));
-//     }
-// }
-
-
-// void log_signals(void)
-// {
-//     // LOCAL VARIBLES
-//     int sigNum = 1;                  // Signal numbers to iterate through
-//     int errNum = 0;                  // Store errno here upon error
-//     sighandler_t temp_sig_hdlr = 0;  // Temp storage for old signal handlers
-
-//     // DO IT
-//     // Set ALL the actions
-//     for (sigNum = 1; sigNum <= SIGRTMAX; sigNum++)
-//     {
-//         if (sigNum == SIGKILL || sigNum == SIGSTOP || sigNum == 32 || sigNum == 33)
-//         {
-//             // Skipping SIGKILL == 9    // Can't ignore
-//             // Skipping SIGSTOP == 19   // Can't ignore
-//         }
-//         else
-//         {
-//             temp_sig_hdlr = signal(sigNum, log_signal);
-//             if (SIG_ERR == temp_sig_hdlr)
-//             {
-//                 errNum = errno;
-//                 fprintf(stderr, "Call to signal(%d) failed with: %s\n", sigNum, strerror(errNum));
-//             }
-//             else
-//             {
-//                 old_sig_handlers[sigNum] = temp_sig_hdlr;
-//             }
-//         }
-//     }
-// }
 
 
 char *prepend_test_input(char *filename, char *prepend, size_t *total_size)
