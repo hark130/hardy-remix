@@ -5,7 +5,7 @@
 #ifndef __HARE_LIBRARY__
 #define __HARE_LIBRARY__
 
-#include <stdbool.h>   // bool
+#include <stdbool.h>    // bool
 #include <stdio.h>      // NULL
 #include <sys/types.h>  // off_t
 #include <syslog.h>     // syslog(), LOG_* macros
@@ -60,6 +60,16 @@ extern int pipe_fds[2];           // Pipe used to send data from the test harnes
 extern char *base_filename;       // Name of the file-based test case created by the test harness
 extern size_t base_filename_len;  // Length of the base_filename
 extern char *processed_filename;  // Absolute filename of a file that matches on base_filename
+
+
+/*
+ *  Add flags to a file descriptor.  Existing flags are preserved.
+ *  Arguments
+ *      fd - Existing file descriptor
+ *      flags - Flags to to add to fd's existing flags
+ *  Returns 0 on success, -1 on bad input, errno on failure;
+ */
+int add_flags_to_fd(int fd, int flags);
 
 
 /*
