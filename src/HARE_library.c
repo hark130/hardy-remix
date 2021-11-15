@@ -234,7 +234,7 @@ static int _file_match(const char *fpath, const struct stat *sb, int tflag, stru
     size_t actual_len = 0;                  // ACTUAL length of local_base_file
 
     // INPUT VALIDATION
-    syslog_it(LOG_DEBUG, "Inside _file_match(), prior to INPUT VALIDATION");  // DEBUGGING
+    // syslog_it(LOG_DEBUG, "Inside _file_match(), prior to INPUT VALIDATION");  // DEBUGGING
     // Arguments
     results = _validate_nftw_callback(fpath, sb, tflag, ftwbuf);
     // Globals
@@ -242,7 +242,7 @@ static int _file_match(const char *fpath, const struct stat *sb, int tflag, stru
     {
         results = -1;
     }
-    syslog_it2(LOG_DEBUG, "Inside _file_match(), INPUT VALIDATION resulted in %d", results);  // DEBUGGING
+    // syslog_it2(LOG_DEBUG, "Inside _file_match(), INPUT VALIDATION resulted in %d", results);  // DEBUGGING
 
     // DO IT
     if (-1 != results)
@@ -256,22 +256,22 @@ static int _file_match(const char *fpath, const struct stat *sb, int tflag, stru
             // Trim leading '/' characters
             while ('/' == *local_base_file)
             {
-                syslog_it2(LOG_DEBUG, "Trimming %s", local_base_file);  // DEBUGGING
+                // syslog_it2(LOG_DEBUG, "Trimming %s", local_base_file);  // DEBUGGING
                 local_base_file++;
-                syslog_it2(LOG_DEBUG, "Trimmed %s", local_base_file);  // DEBUGGING
+                // syslog_it2(LOG_DEBUG, "Trimmed %s", local_base_file);  // DEBUGGING
             }
 
             // Measure everything
             fpath_base = fpath + ftwbuf->base;  // Just the filename
             fpath_base_len = strlen(fpath_base);  // Length of the filename
             actual_len = strlen(local_base_file);  // Actual length of base_filename
-            syslog_it2(LOG_DEBUG, "fpath: %s", fpath);  // DEBUGGING
-            syslog_it2(LOG_DEBUG, "local_base_file: %s", local_base_file);  // DEBUGGING
+            // syslog_it2(LOG_DEBUG, "fpath: %s", fpath);  // DEBUGGING
+            // syslog_it2(LOG_DEBUG, "local_base_file: %s", local_base_file);  // DEBUGGING
 
             // if (fpath_base_len < base_filename_len)
             if (fpath_base_len < actual_len)
             {
-                syslog_it(LOG_INFO, "Not enough room for a match in _file_match()");  // DEBUGGING
+                // syslog_it(LOG_INFO, "Not enough room for a match in _file_match()");  // DEBUGGING
                 results = 0;  // There's not enough room for a match
             }
             else if (!memcmp(fpath_base + (fpath_base_len - actual_len), local_base_file, actual_len))
@@ -349,15 +349,15 @@ static int _non_nul_file_match(const char *fpath, const struct stat *sb, int tfl
             fpath_base = fpath + ftwbuf->base;  // Just the filename
             fpath_base_len = strlen(fpath_base);  // Length of the filename
             actual_len = strlen(base_filename);  // Actual length of base_filename
-            syslog_it2(LOG_DEBUG, "fpath: %s", fpath);  // DEBUGGING
+            // syslog_it2(LOG_DEBUG, "fpath: %s", fpath);  // DEBUGGING
             // syslog_it2(LOG_DEBUG, "fpath_base: %s", fpath_base);  // DEBUGGING
             // syslog_it2(LOG_DEBUG, "fpath_base_len: %zu", fpath_base_len);  // DEBUGGING
-            syslog_it2(LOG_DEBUG, "base_filename: %s", base_filename);  // DEBUGGING
+            // syslog_it2(LOG_DEBUG, "base_filename: %s", base_filename);  // DEBUGGING
 
             if (fpath_base_len < base_filename_len)
             // if (fpath_base_len < actual_len)
             {
-                syslog_it(LOG_INFO, "Not enough room for a match in _non_nul_file_match()");  // DEBUGGING
+                // syslog_it(LOG_INFO, "Not enough room for a match in _non_nul_file_match()");  // DEBUGGING
                 results = 0;  // There's not enough room for a match
             }
             // else if (!memcmp(fpath_base + (fpath_base_len - base_filename_len), base_filename, base_filename_len))
@@ -434,11 +434,11 @@ static int _nul_file_match(const char *fpath, const struct stat *sb, int tflag, 
             fpath_base = fpath + ftwbuf->base;  // Just the filename
             fpath_base_len = strlen(fpath_base);  // Length of the filename
             base_filename_nul = strlen(base_filename);  // Index of the base_filename nul character
-            syslog_it2(LOG_DEBUG, "FPATH BASE: %s", fpath_base + (fpath_base_len - base_filename_nul));  // DEBUGGING
-            syslog_it2(LOG_DEBUG, "BASE FILENAME: %s", base_filename);  // DEBUGGING
+            // syslog_it2(LOG_DEBUG, "FPATH BASE: %s", fpath_base + (fpath_base_len - base_filename_nul));  // DEBUGGING
+            // syslog_it2(LOG_DEBUG, "BASE FILENAME: %s", base_filename);  // DEBUGGING
             if (fpath_base_len < base_filename_nul)
             {
-                syslog_it(LOG_INFO, "Not enough room for a match in _nul_file_match()");  // DEBUGGING
+                // syslog_it(LOG_INFO, "Not enough room for a match in _nul_file_match()");  // DEBUGGING
                 results = 0;  // There's not enough room for a match
             }
             // else if (!memcmp(fpath_base + (fpath_base_len - base_filename_nul), base_filename, base_filename_len))
@@ -470,7 +470,7 @@ static int _nul_file_match(const char *fpath, const struct stat *sb, int tflag, 
     }
     else
     {
-        syslog_it(LOG_ERR, "Input validation for _nul_file_match() failed");  // DEBUGGING
+        syslog_it(LOG_ERR, "Input validation for _nul_file_match() failed");
     }
 
     // CLEANUP
@@ -582,12 +582,12 @@ int _nul_file_matching(char *dirname, char *filename, size_t filename_len)
     {
         if (NULL != strstr(processed_filename, filename))
         {
-            syslog_it2(LOG_DEBUG, "_nul_file_matching() matched %s in %s with %s",
-                       filename, dirname, processed_filename);  // DEBUGGING
+            // syslog_it2(LOG_DEBUG, "_nul_file_matching() matched %s in %s with %s",
+            //            filename, dirname, processed_filename);  // DEBUGGING
         }
         else
         {
-            syslog_it2(LOG_ERR, "Odd that _nul_file_matching() matched %s in %s with %s",
+            syslog_it2(LOG_INFO, "Odd that _nul_file_matching() matched %s in %s with %s",
                        filename, dirname, processed_filename);
         }
     }
@@ -937,7 +937,7 @@ void execute_order(Configuration *config)
             else
             {
                 // No data available. Sleep for a brief moment and try again.
-                syslog_it(LOG_DEBUG, "Call to getINotifyData() provided no data.");  // DEBUGGING
+                // syslog_it(LOG_DEBUG, "Call to getINotifyData() provided no data.");  // DEBUGGING
                 sleep(1);
                 // syslog_it(LOG_DEBUG, "Exiting (until the test harness' getINotifyData() is implemented).");  // TD: DDN... remove once getINotifyData() is implemented
                 // break;  // TD: DDN... remove once getINotifyData() is implemented
@@ -1122,17 +1122,17 @@ int make_pipes(int empty_pipes[2], int flags)
         if (flags)
         {
             #if defined _GNU_SOURCE && defined __USE_GNU
-            syslog_it(LOG_INFO, "Calling pipe2()");
+            // syslog_it(LOG_DEBUG, "Calling pipe2()");  // DEBUGGING
             retval = pipe2(empty_pipes, flags);
             #else
-            syslog_it(LOG_INFO, "Calling pipe()");
+            // syslog_it(LOG_DEBUG, "Calling pipe()");  // DEBUGGING
             retval = pipe(empty_pipes);
             call_fcntl = true;  // There are flags but we're not using pipe2()
             #endif  // _GNU_SOURCE && __USE_GNU
         }
         else
         {
-            // syslog_it(LOG_INFO, "No flags, calling pipe()");
+            // syslog_it(LOG_DEBUG, "No flags, calling pipe()");  // DEBUGGING
             retval = pipe(empty_pipes);
         }
 
@@ -1364,11 +1364,11 @@ bool search_a_file(char *haystack_file, char *needle)
         if (strstr(file_contents, needle))
         {
             found_it = true;
-            syslog_it2(LOG_DEBUG, "Found the needle %s in %s", needle, haystack_file);  // DEBUGGING
+            syslog_it2(LOG_NOTICE, "Found the needle %s in %s", needle, haystack_file);
         }
         else
         {
-            syslog_it2(LOG_DEBUG, "Failed to find the needle %s in %s", needle, haystack_file);  // DEBUGGING
+            syslog_it2(LOG_INFO, "Failed to find the needle %s in %s", needle, haystack_file);
         }
     }
 
@@ -1423,8 +1423,8 @@ char *search_dir(char *haystack_dir, char *needle_file, size_t needle_file_len)
         // Find it!
         if (true == nul_in_needle)
         {
-            syslog_it(LOG_DEBUG, "There's a nul");  // DEBUGGING
-            syslog_it2(LOG_DEBUG, "needle_file_len is %zu and strlen(needle_file) is %zu", needle_file_len, strlen(needle_file));  // DEBUGGING
+            // syslog_it(LOG_DEBUG, "There's a nul");  // DEBUGGING
+            // syslog_it2(LOG_DEBUG, "needle_file_len is %zu and strlen(needle_file) is %zu", needle_file_len, strlen(needle_file));  // DEBUGGING
             // results = _nul_file_matching(haystack_dir, needle_file, needle_file_len);
             // results = _non_nul_file_matching(haystack_dir, needle_file, needle_file_len);  // TESTING
         }
@@ -1433,7 +1433,7 @@ char *search_dir(char *haystack_dir, char *needle_file, size_t needle_file_len)
         //     syslog_it(LOG_DEBUG, "There's no nul");  // DEBUGGING
         //     results = _non_nul_file_matching(haystack_dir, needle_file, needle_file_len);
         // }
-        syslog_it(LOG_DEBUG, "Nul character or not, the test harness is using the same filename matching algorithm");  // DEBUGGING
+        // syslog_it(LOG_DEBUG, "Nul character or not, the test harness is using the same filename matching algorithm");  // DEBUGGING
         results = _file_matching(haystack_dir, needle_file, needle_file_len);
         // What happened?
         if (1 == results)
@@ -1551,8 +1551,8 @@ int stamp_a_file(char *source_file, char *dest_dir)
             memcpy(new_abs_filename + nafn_len, datetime_stamp, stamp_len);
             memcpy(new_abs_filename + nafn_len + stamp_len, basename(source_file), source_len);
             nafn_len = strlen(new_abs_filename);
-            syslog_it2(LOG_DEBUG, "old source filename == %s", source_file);  // DEBUGGING
-            syslog_it2(LOG_DEBUG, "new_abs_filename == %s", new_abs_filename);  // DEBUGGING
+            // syslog_it2(LOG_DEBUG, "old source filename == %s", source_file);  // DEBUGGING
+            // syslog_it2(LOG_DEBUG, "new_abs_filename == %s", new_abs_filename);  // DEBUGGING
         }
         else
         {
@@ -1575,7 +1575,7 @@ int stamp_a_file(char *source_file, char *dest_dir)
         if (0 == errnum)
         {
             syslog_it2(LOG_INFO, "Successfully renamed %s to %s", source_file, new_abs_filename);
-            syslog_it2(LOG_DEBUG, "Saving %s for test harness deletion", new_abs_filename);  // DEBUGGING
+            // syslog_it2(LOG_DEBUG, "Saving %s for test harness deletion", new_abs_filename);  // DEBUGGING
             processed_filename = new_abs_filename;  // Store the newly rename test case for later deletion
             // nafn_len = strlen(new_abs_filename);
             // processed_filename = calloc(nafn_len + 1, sizeof(char));
@@ -1817,11 +1817,11 @@ int wait_daemon(pid_t daemon_pid, int *daemon_exit)
                 // Test return value
                 if (0 == wait_retval)
                 {
-                    syslog_it2(LOG_DEBUG, "PID %ld has not yet changed state", daemon_pid);  // DEBUGGING
+                    // syslog_it2(LOG_DEBUG, "PID %ld has not yet changed state", daemon_pid);  // DEBUGGING
                 }
                 else
                 {
-                    syslog_it2(LOG_DEBUG, "PID %ld has changed state", daemon_pid);  // DEBUGGING
+                    // syslog_it2(LOG_DEBUG, "PID %ld has changed state", daemon_pid);  // DEBUGGING
                 }
 
                 // Test status
@@ -1829,22 +1829,22 @@ int wait_daemon(pid_t daemon_pid, int *daemon_exit)
                 if (WIFEXITED(wait_status))
                 {
                     *daemon_exit = WEXITSTATUS(wait_status);
-                    syslog_it2(LOG_DEBUG, "PID %ld has exited with status %d", daemon_pid, *daemon_exit);  // DEBUGGING
+                    // syslog_it2(LOG_DEBUG, "PID %ld has exited with status %d", daemon_pid, *daemon_exit);  // DEBUGGING
                 }
                 // WIFSIGNALED
                 if (WIFSIGNALED(wait_status))
                 {
-                    syslog_it2(LOG_DEBUG, "PID %ld was killed by signal %d", daemon_pid, WTERMSIG(wait_status));  // DEBUGGING
+                    // syslog_it2(LOG_DEBUG, "PID %ld was killed by signal %d", daemon_pid, WTERMSIG(wait_status));  // DEBUGGING
                 }
                 // WIFSTOPPED
                 if (WIFSTOPPED(wait_status))
                 {
-                    syslog_it2(LOG_DEBUG, "PID %ld was stopped by signal %d", daemon_pid, WSTOPSIG(wait_status));  // DEBUGGING
+                    // syslog_it2(LOG_DEBUG, "PID %ld was stopped by signal %d", daemon_pid, WSTOPSIG(wait_status));  // DEBUGGING
                 }
                 // WIFCONTINUED
                 if (WIFCONTINUED(wait_status))
                 {
-                    syslog_it2(LOG_DEBUG, "PID %ld continued", daemon_pid);  // DEBUGGING
+                    // syslog_it2(LOG_DEBUG, "PID %ld continued", daemon_pid);  // DEBUGGING
                 }
             }
         } while (!WIFEXITED(wait_status) && !WIFSIGNALED(wait_status));

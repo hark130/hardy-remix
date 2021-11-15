@@ -258,15 +258,15 @@ int main(int argc, char *argv[])
                     errnum = errno;
                     syslog_errno(errnum, "(TEST HARNESS) Unable to write to %s", test_filename);
                     // log_external("(PARENT) Unable to write file");  // DEBUGGING
-                    syslog_it2(LOG_DEBUG, "Current status is... fd: %d, test_content: (%p) %s, content size: %zu", fd, test_content, test_content, content_size);  // DEBUGGING
+                    // syslog_it2(LOG_DEBUG, "Current status is... fd: %d, test_content: (%p) %s, content size: %zu", fd, test_content, test_content, content_size);  // DEBUGGING
                     if (errnum)
                     {
-                        syslog_it2(LOG_DEBUG, "errnum (%d): %s", errnum, strerror(errnum));  // DEBUGGING
-                        if (EFAULT == errnum)
-                        {
-                            // EFAULT [test_content] is outside your accessible address space.
-                            syslog_it2(LOG_ERR, "Test content (%p): %s", test_content, test_content);  // DEBUGGING
-                        }
+                        // syslog_it2(LOG_DEBUG, "errnum (%d): %s", errnum, strerror(errnum));  // DEBUGGING
+                        // if (EFAULT == errnum)
+                        // {
+                        //     // EFAULT [test_content] is outside your accessible address space.
+                        //     syslog_it2(LOG_ERR, "Test content (%p): %s", test_content, test_content);  // DEBUGGING
+                        // }
                         success = errnum;
                     }
                     else
@@ -276,7 +276,7 @@ int main(int argc, char *argv[])
                 }
                 else
                 {
-                    syslog_it2(LOG_DEBUG, "(TEST HARNESS) Successfully created and wrote to file %s", test_filename);  // DEBUGGING
+                    // syslog_it2(LOG_DEBUG, "(TEST HARNESS) Successfully created and wrote to file %s", test_filename);  // DEBUGGING
                 }
                 if (test_content)
                 {
@@ -309,7 +309,7 @@ int main(int argc, char *argv[])
             }
             else
             {
-                syslog_it2(LOG_DEBUG, "(TEST HARNESS) Synched file descriptor: %d", fd);
+                // syslog_it2(LOG_DEBUG, "(TEST HARNESS) Synched file descriptor: %d", fd);  // DEBUGGING
             }
             if (close(fd))
             {
@@ -327,7 +327,7 @@ int main(int argc, char *argv[])
             }
             else
             {
-                syslog_it2(LOG_DEBUG, "(TEST HARNESS) Closed file descriptor: %d", fd);
+                // syslog_it2(LOG_DEBUG, "(TEST HARNESS) Closed file descriptor: %d", fd);  // DEBUGGING
             }
             fd = -1;
         }
@@ -350,7 +350,7 @@ int main(int argc, char *argv[])
     // Handle odd edge cases (e.g., BAD_ADDRESS)
     if (0 != success && 1 == file_exists)
     {
-        syslog_it(LOG_DEBUG, "Here we are, handling some weird edge case...");  // DEBUGGING
+        // syslog_it(LOG_DEBUG, "Here we are, handling some weird edge case...");  // DEBUGGING
         if (1 == verify_filename(test_filename))
         {
             if (-1 == remove(test_filename))
@@ -460,7 +460,7 @@ int main(int argc, char *argv[])
             // Returns 0 on success, -1 on error, -2 if no match found, and errnum on failure
             if (-2 == errnum)
             {
-                syslog_it2(LOG_DEBUG, "(TEST HARNESS) No match for %s found in %s to cleanup", base_filename, config.inotify_config.watched);  // DEBUGGING
+                syslog_it2(LOG_ERR, "(TEST HARNESS) No match for %s found in %s to cleanup", base_filename, config.inotify_config.watched);
             }
             else if (-1 == errnum)
             {
@@ -581,14 +581,14 @@ int main(int argc, char *argv[])
     {
         syslog_it(LOG_NOTICE, "(TEST HARNESS) Exiting");
     }
-    else if (0 == daemon)
-    {
-        syslog_it(LOG_NOTICE, "(DAEMON) Exiting");
-    }
-    else
-    {
-        syslog_it(LOG_ERR, "HOW DID WE GET HERE?!");
-    }
+    // else if (0 == daemon)
+    // {
+    //     syslog_it(LOG_NOTICE, "(DAEMON) Exiting");
+    // }
+    // else
+    // {
+    //     syslog_it(LOG_ERR, "HOW DID WE GET HERE?!");
+    // }
     return success;
 }
 
