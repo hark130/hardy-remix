@@ -34,7 +34,8 @@ fi
 while [ `ls $LOG_DIR | wc -l` -eq 0 ] && [ `ls $WATCH_DIR | wc -l` -eq 1 ] && [ `ls $PROCESS_DIR | wc -l` -eq 0 ]
 do
 	echo "Test: $TEST_NUM"
-	echo -n "some_filename.txt" | radamsa > filename_test.txt && sudo ASAN_OPTIONS="log_path=$LOG_DIR$LOG_FILENAME" $1 filename_test.txt
+	echo -n "some_filename.txt" | radamsa > filename_test.txt
+	sudo ASAN_OPTIONS="log_path=$LOG_DIR$LOG_FILENAME" $1 filename_test.txt
 	TEST_NUM=$((TEST_NUM+1))
 done
 echo "$LOG_DIR"
