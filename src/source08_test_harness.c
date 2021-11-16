@@ -1,27 +1,34 @@
-#include <errno.h>         // errno
-#include <fcntl.h>         // open()
+/*
+ *  Defines the test harness for "source08" functionality.
+ *  BASIC USAGE:
+ *      1. Manual
+ *          - make source08
+ *          - echo -n "some_file.txt" > source08_test_input.txt
+ *          - sudo ./dist/source08_test_harness_<choose one>.bin source08_test_input.txt
+ *      2. Script
+ *          - sudo ./devops/scripts/filename_test.sh ./dist/source08_test_harness_<choose one>.bin
+ *      3. Fuzzer
+ *          A. AFL++
+ *              - see: README.md
+ *          B. Honggfuzz
+ *              - TO DO: DON'T DO NOW...
+ *          C. Radamsa
+ *              - make source08
+ *              - echo -n "some_file.txt" | radamsa > source08_test_input.txt
+ *              - sudo ./dist/source08_test_harness_<choose one>.bin source08_test_input.txt
+ */
+
+#include <errno.h>           // errno
+#include <fcntl.h>           // open()
 // #include <signal.h>        // raise(), signal(), sa_handler
 // #include <stdio.h>         // fprintf(), remove(), snprintf()
-#include <stdint.h>        // SIZE_MAX
-#include <stdlib.h>        // calloc(), free()
-#include <string.h>        // strerror()
-#include <sys/stat.h>      // stat(), S_xxxx
-#include <unistd.h>        // close(), write()
-#include "HARE_library.h"  // be_sure()
-
-
-// #ifndef __USE_GNU
-// #define __USE_GNU  // Get access to sighandler_t
-// #endif  // __USE_GNU
-
-// #ifndef sighandler_t
-// typedef __sighandler_t sighandler_t;
-// #endif  // sighandler_t
-
-// #define LOG_FILENAME "/tmp/log_file.txt"  // Log here
-// #define LOG_FILENAME "./log_file.txt"  // Log here
-
-// sighandler_t old_sig_handlers[128] = { NULL };
+#include <stdint.h>          // SIZE_MAX
+#include <stdlib.h>          // calloc(), free()
+#include <string.h>          // strerror()
+#include <sys/stat.h>        // stat(), S_xxxx
+#include <unistd.h>          // close(), write()
+#include "HARE_library.h"    // be_sure()
+#include "HARE_sanitizer.h"  // fill_sanitizer_logs(), SanitizerLogs
 
 
 /*
@@ -95,18 +102,19 @@ off_t size_test_file(char *filename);
 int main(int argc, char *argv[])
 {
     // LOCAL VARIABLES
-    int success = 0;               // Return value
-    char *filename = argv[1];      // CLI argument: filename
-    char *test_filename = NULL;    // Contents of filename: use as test input
-    size_t test_filename_len = 0;  // Total readable length of test_filename
-    char *test_content = NULL;     // Fuzzed test file contents
-    size_t content_size = 0;       // Readable size of test_content
-    int fd = 0;                    // Filename's file descriptor
-    int file_exists = 0;           // Makeshift boolean to track file creation
-    int errnum = 0;                // Store errno values
-    Configuration config = { 0 };  // Pass to be_sure()
-    mode_t old_umask = 0;          // Store umask() value here and restore it
-    pid_t daemon = 0;              // PID if parent, 0 if child, -1 on failure
+    int success = 0;                 // Return value
+    char *filename = argv[1];        // CLI argument: filename
+    char *test_filename = NULL;      // Contents of filename: use as test input
+    size_t test_filename_len = 0;    // Total readable length of test_filename
+    char *test_content = NULL;       // Fuzzed test file contents
+    size_t content_size = 0;         // Readable size of test_content
+    int fd = 0;                      // Filename's file descriptor
+    int file_exists = 0;             // Makeshift boolean to track file creation
+    int errnum = 0;                  // Store errno values
+    Configuration config = { 0 };    // Pass to be_sure()
+    SanitizerLogs san_logs = { 0 };  // Saniziter log file names
+    mode_t old_umask = 0;            // Store umask() value here and restore it
+    pid_t daemon = 0;                // PID if parent, 0 if child, -1 on failure
 
     // DO IT
     // 1. Read file containing test input
@@ -132,6 +140,36 @@ int main(int argc, char *argv[])
     {
         syslog_it(LOG_ERR, "Call to prepend_test_input() failed with an unspecified error");
         success = -1;
+    }
+
+    // Read sanitizer log files
+    if (0 == success)
+    {
+        success = fill_sanitizer_logs(&san_logs);
+        if (0 == success)
+        {
+            if (san_logs->asan_log)
+            {
+                syslog_it2(LOG_DEBUG, "(TEST HARNESS) ASAN LOG: %s", san_logs->asan_log);  // DEBUGGING
+            }
+            if (san_logs->memwatch_log)
+            {
+                syslog_it2(LOG_DEBUG, "(TEST HARNESS) MEMWATCH LOG: %s", san_logs->memwatch_log);  // DEBUGGING
+            }
+        }
+        else if (-1 == success)
+        {
+            syslog_it2(LOG_ERR, "(TEST HARNESS) fill_sanitizer_logs() reported an unspecified error");
+        }
+        else if (-2 == success)
+        {
+            syslog_it2(LOG_NOTICE, "(TEST HARNESS) No sanitizer logs found among the environment variables");
+            success = 0;  // This is not an error so we'll continue
+        }
+        else
+        {
+            syslog_it2(LOG_DEBUG, "(TEST HARNESS) fill_sanitizer_logs() returned an unspecified value: %d", success);  // DEBUGGING
+        }
     }
 
     // 2. Setup environment
@@ -437,6 +475,16 @@ int main(int argc, char *argv[])
         }
     }
     // EVERYBODY
+    if (san_logs->asan_log)
+    {
+        free(san_logs->asan_log);
+        san_logs->asan_log = NULL;
+    }
+    if (san_logs->memwatch_log)
+    {
+        free(san_logs->memwatch_log);
+        san_logs->memwatch_log = NULL;
+    }
     // PRO TIP: Since test_filename gets allocated *before* the call to fork(), the child process
     //  gets a *copy* of the heap memory... not *access* to the parent processes memory.
     //  That means that both the parent and the child process need to free this address.
