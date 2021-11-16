@@ -1484,6 +1484,12 @@ int stamp_a_file(char *source_file, char *dest_dir)
     }
 
     // CLEANUP
+    if (0 != errnum && new_abs_filename)
+    {
+        processed_filename = NULL;
+        free(new_abs_filename);
+        new_abs_filename = NULL;
+    }
     if (datetime_stamp)
     {
         free(datetime_stamp);
