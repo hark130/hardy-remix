@@ -165,4 +165,37 @@ void get_memwatch_log(SanitizerLogs *san_logs)
     return;
 }
 
-// ASAN NOTE: Then parse *that* for "log_path"
+/*
+ *  Create directories necessary to hold the sanitizer logs
+ *  Returns 0 on success, -1 on bad input, errno on failure
+ */
+int prepare_log_dirs(SanitizerLogs *san_logs)
+{
+    // LOCAL VARIABLES
+    int success = -1;  // 0 on success, -1 on bad input, errno on failure
+
+    // INPUT VALIDATION
+    if (san_logs && (san_logs->asan_log || san_logs->memwatch_log))
+    {
+        success = 0;
+    }
+
+    // DO IT
+    // ASAN
+    if (0 == success && san_logs->asan_log)
+    {
+        // 1. Get directory name
+
+        // 2. Check for existence
+
+        // 3. Make it
+    }
+    // Memwatch
+    if (0 == success && san_logs->memwatch_log)
+    {
+        // TD: DDN
+    }
+
+    // DONE
+    return success;
+}

@@ -32,4 +32,11 @@ char *get_env_var(char *var_name);
 int fill_sanitizer_logs(SanitizerLogs *san_logs);
 
 
+/*
+ *  Create directories necessary to hold the sanitizer logs
+ *  Returns 0 on success, -1 on bad input, errno on failure
+ */
+int prepare_log_dirs(SanitizerLogs *san_logs);
+
+
 #endif  // __HARE_SANITIZER__
