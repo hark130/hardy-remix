@@ -103,14 +103,17 @@ void get_asan_log(SanitizerLogs *san_logs)
     temp_value = get_env_var(asan_env_var);
     if (temp_value)
     {
+        syslog_it2(LOG_DEBUG, "get_asan_log() found %s", temp_value);  // DEBUGGING
         log_file = strstr(temp_value, log_path_val);
         if (log_file)
         {
             log_file = log_file + strlen(log_path_val);  // Fast forward past the needle
-            while (0x0 != *log_file && ' ' != *log_file)
+            syslog_it2(LOG_DEBUG, "Found log_file: %s", log_file);  // DEBUGGING
+            temp_value = log_file;  // Repurpose this temp variable to iterate over the string
+            while (0x0 != *temp_value && ' ' != *temp_value)
             {
                 filename_len++;
-                log_file++;
+                temp_value++;
             }
             if (*log_file && filename_len > 0)
             {
