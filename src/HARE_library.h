@@ -26,6 +26,14 @@ typedef struct _Code {
     int  value;
 } CODE;
 
+// Both in and out parameter for split_path()
+typedef struct _LinuxPath
+{
+    char *path;       // Original path    [in]
+    char *path_dir;   // Path's directory [out]
+    char *path_base;  // Path's filename  [out]
+} LinuxPath;
+
 typedef struct _Message
 {
     char *buffer;  // Message Contents
@@ -229,6 +237,25 @@ bool search_a_file(char *haystack_file, char *needle);
  *  Get the size of a file: size on success, -1 on error
  */
 off_t size_file(char *filename);
+
+
+/*
+ *  Split nix_path into its directory and base filename
+ *  Use nix_path->path as the [in] argument
+ *  This function allocate memory for path_dir and path_base
+ *  The caller is responsible for freeing path_dir and path_base
+ *  Returns 0 on success, -1 on bad input, and errno on error
+ *
+ *  path    path_dir    path_base
+ *  --------------------------------
+ *  /usr/lib    /usr        lib
+ *  /usr/lib/   /usr/lib    NULL
+ *  usr         .           usr
+ *  /           /           NULL
+ *  .           .           NULL
+ *  ..          ..          NULL
+ */
+int split_path(LinuxPath *nix_path);
 
 
 /*

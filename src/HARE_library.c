@@ -1377,6 +1377,46 @@ off_t size_file(char *filename)
 }
 
 
+/*
+ *  Split nix_path into its directory and base filename
+ *  Use nix_path->path as the [in] argument
+ *  This function allocate memory for path_dir and path_base
+ *  The caller is responsible for freeing path_dir and path_base
+ *  Returns 0 on success, -1 on bad input, and errno on error
+ *
+ *  path    path_dir    path_base
+ *  --------------------------------
+ *  /usr/lib    /usr        lib
+ *  /usr/lib/   /usr/lib    NULL
+ *  usr         .           usr
+ *  /           /           NULL
+ *  .           .           NULL
+ *  ..          ..          NULL
+ */
+int split_path(LinuxPath *nix_path)
+{
+    // LOCAL VARIABLES
+    int success = -1;        // 0 on success, -1 on bad input, and errno on error
+    char *temp_dir = NULL;   // Temporary storage for dirname()
+    char *temp_base = NULL;  // Temporary storage for basename()
+
+    // INPUT VALIDATION
+    if (nix_path && nix_path->path && NULL == nix_path->path_dir && NULL == nix_path->path_base)
+    {
+        success = 0;
+    }
+
+    // SPLIT
+    if (0 == success)
+    {
+        // TO DO:  DON'T DO NOW... CONTINUE HERE
+    }
+
+    // DONE
+    return success;
+}
+
+
 int stamp_a_file(char *source_file, char *dest_dir)
 {
     // LOCAL VARIABLES
