@@ -106,10 +106,10 @@ source07_honggfuzz:
 
 # This rule compiles code that was created to replicate the behavior of a basic file-handling Linux daemon
 source08:
-	$(CC) $(CFLAGS) -DBINARY_NAME="\"source08_bad.bin\"" -o $(DIST)source08_test_harness_bad.bin $(CODE)HARE_library_bad.c $(CODE)HARE_library.c $(CODE)source08_test_harness.c
-	$(CC) $(CFLAGS) -DBINARY_NAME="\"source08_best.bin\"" -o $(DIST)source08_test_harness_best.bin $(CODE)HARE_library_best.c $(CODE)HARE_library.c $(CODE)source08_test_harness.c
-	$(CC) $(CFLAGS) -DBINARY_NAME="\"source08_bad.bin\"" $(ASANFLAGS) -o $(DIST)source08_test_harness_bad_ASAN.bin $(CODE)HARE_library_bad.c $(CODE)HARE_library.c $(CODE)source08_test_harness.c
-	$(CC) $(CFLAGS) -DBINARY_NAME="\"source08_best.bin\"" $(ASANFLAGS) -o $(DIST)source08_test_harness_best_ASAN.bin $(CODE)HARE_library_best.c $(CODE)HARE_library.c $(CODE)source08_test_harness.c
+	$(CC) $(CFLAGS) -DBINARY_NAME="\"source08_bad.bin\"" -o $(DIST)source08_test_harness_bad.bin $(CODE)HARE_library_bad.c $(CODE)HARE_library.c $(CODE)HARE_sanitizer.c $(CODE)source08_test_harness.c
+	$(CC) $(CFLAGS) -DBINARY_NAME="\"source08_best.bin\"" -o $(DIST)source08_test_harness_best.bin $(CODE)HARE_library_best.c $(CODE)HARE_library.c $(CODE)HARE_sanitizer.c $(CODE)source08_test_harness.c
+	$(CC) $(CFLAGS) -DBINARY_NAME="\"source08_bad.bin\"" $(ASANFLAGS) -o $(DIST)source08_test_harness_bad_ASAN.bin $(CODE)HARE_library_bad.c $(CODE)HARE_library.c $(CODE)HARE_sanitizer.c $(CODE)source08_test_harness.c
+	$(CC) $(CFLAGS) -DBINARY_NAME="\"source08_best.bin\"" $(ASANFLAGS) -o $(DIST)source08_test_harness_best_ASAN.bin $(CODE)HARE_library_best.c $(CODE)HARE_library.c $(CODE)HARE_sanitizer.c $(CODE)source08_test_harness.c
 
 # This rule was created to facilitate making an AFL++ test harness
 source08_afl:
