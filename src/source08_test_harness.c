@@ -115,6 +115,7 @@ int main(int argc, char *argv[])
     SanitizerLogs san_logs = { 0 };  // Saniziter log file names
     mode_t old_umask = 0;            // Store umask() value here and restore it
     pid_t daemon = 0;                // PID if parent, 0 if child, -1 on failure
+    int process_san_logs = 0;        // 0 for no sanitizer logs, otherwise 1
 
     // DO IT
     // 1. Read file containing test input
@@ -151,10 +152,12 @@ int main(int argc, char *argv[])
             if (san_logs.asan_log)
             {
                 syslog_it2(LOG_DEBUG, "(TEST HARNESS) ASAN LOG: %s", san_logs.asan_log);  // DEBUGGING
+                process_san_logs = 1;  // We'll need to process these logs later
             }
             if (san_logs.memwatch_log)
             {
                 syslog_it2(LOG_DEBUG, "(TEST HARNESS) MEMWATCH LOG: %s", san_logs.memwatch_log);  // DEBUGGING
+                process_san_logs = 1;  // We'll need to process these logs later
             }
         }
         else if (-1 == success)
@@ -173,6 +176,7 @@ int main(int argc, char *argv[])
     }
 
     // 2. Setup environment
+    // Watch dir
     if (0 == success)
     {
         old_umask = umask(0);
@@ -192,6 +196,10 @@ int main(int argc, char *argv[])
                 }
             }
         }
+    }
+    // Processed dir
+    if (0 == success)
+    {
         if (0 == check_dir(config.inotify_config.process))
         {
             if (0 != mkdir(config.inotify_config.process, S_IRWXU | S_IRWXG | S_IRWXO))
@@ -208,6 +216,11 @@ int main(int argc, char *argv[])
                 }
             }
         }
+    }
+    // Sanitizer logs
+    if (0 == success && 1 == process_san_logs)
+    {
+        success = prepare_log_dirs(&san_logs);
     }
 
     // 3. Prepare the "hook"
