@@ -2,6 +2,9 @@
  *  Defines HARE_sanitizer functionality.
  */
 
+#include <errno.h>           // errno
+#include <stdlib.h>          // getenv()
+#include <string.h>          // strstr()
 #include "HARE_library.h"    // syslog_*()
 #include "HARE_sanitizer.h"
 
@@ -90,11 +93,11 @@ int fill_sanitizer_logs(SanitizerLogs *san_logs)
 void get_asan_log(SanitizerLogs *san_logs)
 {
     // LOCAL VARIABLES
-    char asan_env_var[] = "ASAN_OPTIONS"  // Address Sanitizer (ASAN) env variable
-    char log_path_val[] = "log_path="     // Needle to search for within env var value
-    char *temp_value = NULL;              // ASAN env variable value
-    char *log_file = NULL;                // Address to log_path
-    size_t filename_len = 0;              // Length of the log_path_val value
+    char asan_env_var[] = {"ASAN_OPTIONS"};  // Address Sanitizer (ASAN) env variable
+    char log_path_val[] = {"log_path="};     // Needle to search for within env var value
+    char *temp_value = NULL;                 // ASAN env variable value
+    char *log_file = NULL;                   // Address to log_path
+    size_t filename_len = 0;                 // Length of the log_path_val value
 
     // DO IT
     temp_value = get_env_var(asan_env_var);
