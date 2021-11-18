@@ -148,13 +148,13 @@ int main(int argc, char *argv[])
         success = fill_sanitizer_logs(&san_logs);
         if (0 == success)
         {
-            if (san_logs->asan_log)
+            if (san_logs.asan_log)
             {
-                syslog_it2(LOG_DEBUG, "(TEST HARNESS) ASAN LOG: %s", san_logs->asan_log);  // DEBUGGING
+                syslog_it2(LOG_DEBUG, "(TEST HARNESS) ASAN LOG: %s", san_logs.asan_log);  // DEBUGGING
             }
-            if (san_logs->memwatch_log)
+            if (san_logs.memwatch_log)
             {
-                syslog_it2(LOG_DEBUG, "(TEST HARNESS) MEMWATCH LOG: %s", san_logs->memwatch_log);  // DEBUGGING
+                syslog_it2(LOG_DEBUG, "(TEST HARNESS) MEMWATCH LOG: %s", san_logs.memwatch_log);  // DEBUGGING
             }
         }
         else if (-1 == success)
@@ -475,15 +475,15 @@ int main(int argc, char *argv[])
         }
     }
     // EVERYBODY
-    if (san_logs->asan_log)
+    if (san_logs.asan_log)
     {
-        free(san_logs->asan_log);
-        san_logs->asan_log = NULL;
+        free(san_logs.asan_log);
+        san_logs.asan_log = NULL;
     }
-    if (san_logs->memwatch_log)
+    if (san_logs.memwatch_log)
     {
-        free(san_logs->memwatch_log);
-        san_logs->memwatch_log = NULL;
+        free(san_logs.memwatch_log);
+        san_logs.memwatch_log = NULL;
     }
     // PRO TIP: Since test_filename gets allocated *before* the call to fork(), the child process
     //  gets a *copy* of the heap memory... not *access* to the parent processes memory.
